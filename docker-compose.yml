@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: wash_db
+    restart: always
+    environment:
+      POSTGRES_DB: washdb
+      POSTGRES_USER: washuser
+      POSTGRES_PASSWORD: washpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: wash_backend
+    restart: always
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: wash_frontend
+    restart: always
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env.local
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

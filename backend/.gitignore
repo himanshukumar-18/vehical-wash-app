@@ -1,0 +1,67 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.*
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Migrations (keep __init__.py)
+**/migrations/*
+!**/migrations/
+!**/migrations/__init__.py
+
+# Python
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.cache/
+
+# IDEs
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# Type checking
+.mypy_cache/
+.pyre/
+.pytype/
+
+# Ruff
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# PyCharm
+*.iml
