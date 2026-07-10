@@ -47,8 +47,7 @@ INSTALLED_APPS = [
 
     # our apps
     'users',
-    'vehicles',
-    'services',
+    "services.apps.ServicesConfig",
     'bookings',
     'payments',
 ]
@@ -186,3 +185,6 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Razorpay settings
 RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='')
 RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
