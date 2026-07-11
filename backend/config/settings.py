@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     "services.apps.ServicesConfig",
     'bookings',
     'payments',
+    'vehicles',
+    'slots'
 ]
 
 MIDDLEWARE = [
