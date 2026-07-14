@@ -1,9 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Slot
-from .models import Holiday
-
 
 def validate_slot_time(start_time, end_time):
     """
@@ -27,7 +24,7 @@ def validate_slot_capacity(capacity):
 
 def validate_slot_duration(duration):
     """
-    Slot duration between 15 minutes and 4 hours.
+    Slot duration must be between 15 minutes and 4 hours.
     """
     if duration < 15:
         raise ValidationError(
@@ -44,6 +41,7 @@ def validate_duplicate_slot(slot_date, start_time, end_time, instance=None):
     """
     Prevent duplicate slot creation.
     """
+    from .models import Slot
 
     queryset = Slot.objects.filter(
         date=slot_date,
@@ -62,8 +60,9 @@ def validate_duplicate_slot(slot_date, start_time, end_time, instance=None):
 
 def validate_holiday(slot_date):
     """
-    Booking slots cannot exist on active holidays.
+    Prevent slot creation on holidays.
     """
+    from .models import Holiday
 
     if Holiday.objects.filter(
         date=slot_date,
@@ -78,10 +77,7 @@ def validate_future_date(slot_date):
     """
     Slots cannot be generated in the past.
     """
-
-    today = timezone.localdate()
-
-    if slot_date < today:
+    if slot_date < timezone.localdate():
         raise ValidationError(
             "Cannot create slots for past dates."
         )
@@ -89,9 +85,8 @@ def validate_future_date(slot_date):
 
 def validate_booking_capacity(slot):
     """
-    Ensure slot still has available capacity.
+    Ensure slot has remaining capacity.
     """
-
     if slot.booked_count >= slot.capacity:
         raise ValidationError(
             "This slot is already full."
@@ -102,7 +97,6 @@ def validate_slot_active(slot):
     """
     Slot must be active.
     """
-
     if not slot.is_active:
         raise ValidationError(
             "This slot is inactive."
@@ -113,7 +107,6 @@ def validate_slot_blocked(slot):
     """
     Slot must not be blocked.
     """
-
     if slot.is_blocked:
         raise ValidationError(
             "This slot has been blocked."
@@ -124,7 +117,6 @@ def validate_slot_available(slot):
     """
     Final validation before booking.
     """
-
     validate_slot_active(slot)
     validate_slot_blocked(slot)
     validate_booking_capacity(slot)

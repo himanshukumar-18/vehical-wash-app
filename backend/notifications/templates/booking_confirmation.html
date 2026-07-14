@@ -1,0 +1,249 @@
+{% extends "base_email.html" %}
+
+{% block title %}
+Booking Confirmation
+{% endblock %}
+
+{% block content %}
+
+<h1>
+    🎉 Booking Confirmed
+</h1>
+
+<p>
+    Hi <strong>{{ booking.customer.fullname }}</strong>,
+</p>
+
+<p>
+    Thank you for choosing <strong>Washly</strong>.
+    Your booking has been successfully confirmed.
+    Below are your appointment details.
+</p>
+
+<div class="card">
+
+    <table class="table">
+
+        <tr>
+            <td>Booking Number</td>
+            <td>{{ booking.booking_number }}</td>
+        </tr>
+
+        <tr>
+            <td>Vehicle</td>
+            <td>
+                {{ booking.vehicle.brand }}
+                {{ booking.vehicle.model }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Registration</td>
+            <td>
+                {{ booking.vehicle.registration_number }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Service</td>
+            <td>{{ booking.service.name }}</td>
+        </tr>
+
+        <tr>
+            <td>Date</td>
+            <td>{{ booking.slot.date }}</td>
+        </tr>
+
+        <tr>
+            <td>Time</td>
+            <td>
+                {{ booking.slot.start_time }}
+                -
+                {{ booking.slot.end_time }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Status</td>
+            <td>
+
+                <span class="badge">
+
+                    {{ booking.get_status_display }}
+
+                </span>
+
+            </td>
+        </tr>
+
+    </table>
+
+</div>
+
+<div class="card">
+
+    <h2 style="
+        margin-top:0;
+        color:#1d212b;
+        ">
+        Arrival Verification OTP
+    </h2>
+
+    <p>
+        Show this OTP when you arrive at our service center.
+    </p>
+
+    <div style="
+        margin:25px 0;
+        text-align:center;
+        ">
+
+        <div style="
+            display:inline-block;
+            padding:18px 40px;
+            background:#ff6b22;
+            color:white;
+            font-size:34px;
+            font-weight:800;
+            letter-spacing:10px;
+            border-radius:14px;
+            ">
+
+            {{ booking.arrival_otp }}
+
+        </div>
+
+    </div>
+
+    <p style="
+        color:#777;
+        text-align:center;
+        ">
+        This OTP will be verified before your wash begins.
+    </p>
+
+</div>
+
+<div class="card">
+
+    <h2 style="
+        margin-top:0;
+        color:#1d212b;
+        ">
+        Payment Summary
+    </h2>
+
+    <table class="table">
+
+        <tr>
+            <td>Service Price</td>
+            <td>₹ {{ booking.base_price }}</td>
+        </tr>
+
+        <tr>
+            <td>Tax</td>
+            <td>₹ {{ booking.tax }}</td>
+        </tr>
+
+        <tr>
+            <td>Discount</td>
+            <td>₹ {{ booking.discount }}</td>
+        </tr>
+
+        <tr>
+            <td>
+                <strong>Total</strong>
+            </td>
+
+            <td>
+
+                <strong>
+
+                    ₹ {{ booking.total_price }}
+
+                </strong>
+
+            </td>
+
+        </tr>
+
+    </table>
+
+</div>
+
+{% if booking.address %}
+
+<div class="card">
+
+    <h2 style="
+        margin-top:0;
+        color:#1d212b;
+        ">
+        Service Address
+    </h2>
+
+    <p>
+
+        {{ booking.address }}
+
+    </p>
+
+</div>
+
+{% endif %}
+
+{% if booking.customer_note %}
+
+<div class="card">
+
+    <h2 style="
+        margin-top:0;
+        color:#1d212b;
+        ">
+        Customer Note
+    </h2>
+
+    <p>
+
+        {{ booking.customer_note }}
+
+    </p>
+
+</div>
+
+{% endif %}
+
+<div style="
+    text-align:center;
+    margin-top:35px;
+    ">
+
+    <a href="{{ website_url }}" class="button">
+
+        View Booking
+
+    </a>
+
+</div>
+
+<p style="
+    margin-top:35px;
+    ">
+    If you need to reschedule or cancel your booking, please contact our support team before your appointment.
+</p>
+
+<p>
+
+    We look forward to serving you.
+
+</p>
+
+<p>
+
+    <strong>
+        Team Washly 🚗
+    </strong>
+
+</p>
+
+{% endblock %}

@@ -1,0 +1,264 @@
+{% extends "base_email.html" %}
+
+{% block title %}
+Booking Cancelled
+{% endblock %}
+
+{% block content %}
+
+<h1>
+    ❌ Booking Cancelled
+</h1>
+
+<p>
+    Hello <strong>{{ booking.customer.fullname }}</strong>,
+</p>
+
+<p>
+    Your booking has been successfully cancelled.
+    We're sorry to see you cancel your appointment.
+</p>
+
+<div class="card">
+
+    <h2 style="margin-top:0;color:#1d212b;">
+        Cancelled Booking Details
+    </h2>
+
+    <table class="table">
+
+        <tr>
+            <td>Booking Number</td>
+            <td>{{ booking.booking_number }}</td>
+        </tr>
+
+        <tr>
+            <td>Vehicle</td>
+            <td>
+                {{ booking.vehicle.brand }}
+                {{ booking.vehicle.model }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Registration</td>
+            <td>{{ booking.vehicle.registration_number }}</td>
+        </tr>
+
+        <tr>
+            <td>Service</td>
+            <td>{{ booking.service.name }}</td>
+        </tr>
+
+        <tr>
+            <td>Date</td>
+            <td>{{ booking.slot.date }}</td>
+        </tr>
+
+        <tr>
+            <td>Time</td>
+            <td>
+                {{ booking.slot.start_time }}
+                -
+                {{ booking.slot.end_time }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Status</td>
+            <td>
+
+                <span style="
+                    display:inline-block;
+                    padding:8px 18px;
+                    background:#dc3545;
+                    color:#fff;
+                    border-radius:25px;
+                    font-weight:bold;
+                    ">
+                    Cancelled
+                </span>
+
+            </td>
+        </tr>
+
+    </table>
+
+</div>
+
+<div class="card">
+
+    <h2 style="margin-top:0;color:#1d212b;">
+        Payment Summary
+    </h2>
+
+    <table class="table">
+
+        <tr>
+            <td>Service Price</td>
+            <td>₹ {{ booking.base_price }}</td>
+        </tr>
+
+        <tr>
+            <td>Tax</td>
+            <td>₹ {{ booking.tax }}</td>
+        </tr>
+
+        <tr>
+            <td>Discount</td>
+            <td>₹ {{ booking.discount }}</td>
+        </tr>
+
+        <tr>
+            <td><strong>Total Amount</strong></td>
+            <td>
+                <strong>
+                    ₹ {{ booking.total_price }}
+                </strong>
+            </td>
+        </tr>
+
+    </table>
+
+</div>
+
+<div style="
+    margin-top:25px;
+    padding:22px;
+    background:#fff7f7;
+    border-left:5px solid #dc3545;
+    border-radius:12px;
+    ">
+
+    <h3 style="
+        margin-top:0;
+        color:#dc3545;
+        ">
+        Refund Information
+    </h3>
+
+    <p>
+
+        Payment Status:
+        <strong>
+
+            {{ booking.get_payment_status_display }}
+
+        </strong>
+
+    </p>
+
+    {% if booking.payment_status == "paid" %}
+
+    <p>
+
+        Your refund request has been initiated.
+
+        Refunds are usually processed within
+
+        <strong>5-7 business days.</strong>
+
+    </p>
+
+    {% else %}
+
+    <p>
+
+        Since payment was not completed,
+
+        no refund is required.
+
+    </p>
+
+    {% endif %}
+
+</div>
+
+{% if booking.admin_note %}
+
+<div class="card">
+
+    <h2 style="
+        margin-top:0;
+        color:#1d212b;
+        ">
+        Cancellation Reason
+    </h2>
+
+    <p>
+
+        {{ booking.admin_note }}
+
+    </p>
+
+</div>
+
+{% endif %}
+
+<div style="
+    margin-top:30px;
+    padding:20px;
+    background:#fff8ef;
+    border-left:5px solid #ff6b22;
+    border-radius:12px;
+    ">
+
+    <strong>
+        Need another appointment?
+    </strong>
+
+    <p style="margin-top:12px;">
+
+        You can easily schedule a new booking
+        whenever you're ready.
+
+    </p>
+
+</div>
+
+<div style="
+    text-align:center;
+    margin-top:35px;
+    ">
+
+    <a href="{{ website_url }}" class="button">
+
+        Book Again
+
+    </a>
+
+</div>
+
+<p style="
+    margin-top:35px;
+    text-align:center;
+    ">
+
+    If you have any questions,
+
+    contact us at
+
+    <strong>
+
+        {{ support_email }}
+
+    </strong>
+
+</p>
+
+<p style="
+    text-align:center;
+    font-weight:bold;
+    ">
+
+    Thank you for choosing
+
+    <span style="color:#ff6b22;">
+        Washly
+    </span>
+
+    🚗
+
+</p>
+
+{% endblock %}

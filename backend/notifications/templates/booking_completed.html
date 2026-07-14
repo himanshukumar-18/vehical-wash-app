@@ -1,0 +1,277 @@
+{% extends "base_email.html" %}
+
+{% block title %}
+Service Completed
+{% endblock %}
+
+{% block content %}
+
+<h1>
+    🎉 Your Vehicle Wash is Complete!
+</h1>
+
+<p>
+    Hello <strong>{{ booking.customer.fullname }}</strong>,
+</p>
+
+<p>
+    Thank you for trusting <strong>Washly</strong> with your vehicle.
+    Your service has been successfully completed, and we hope you're delighted with the results.
+</p>
+
+<div class="card">
+
+    <h2 style="margin-top:0;color:#1d212b;">
+        Service Summary
+    </h2>
+
+    <table class="table">
+
+        <tr>
+            <td>Booking Number</td>
+            <td>{{ booking.booking_number }}</td>
+        </tr>
+
+        <tr>
+            <td>Vehicle</td>
+            <td>
+                {{ booking.vehicle.brand }}
+                {{ booking.vehicle.model }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Registration</td>
+            <td>
+                {{ booking.vehicle.registration_number }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Service</td>
+            <td>
+                {{ booking.service.name }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Date</td>
+            <td>
+                {{ booking.slot.date }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Time</td>
+            <td>
+                {{ booking.slot.start_time }}
+                -
+                {{ booking.slot.end_time }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Status</td>
+            <td>
+
+                <span style="
+                    display:inline-block;
+                    background:#28a745;
+                    color:#fff;
+                    padding:8px 18px;
+                    border-radius:30px;
+                    font-weight:bold;
+                    ">
+                    Completed
+                </span>
+
+            </td>
+        </tr>
+
+    </table>
+
+</div>
+
+<div class="card">
+
+    <h2 style="margin-top:0;">
+        Payment Summary
+    </h2>
+
+    <table class="table">
+
+        <tr>
+            <td>Service Price</td>
+            <td>
+                ₹ {{ booking.base_price }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Tax</td>
+            <td>
+                ₹ {{ booking.tax }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Discount</td>
+            <td>
+                ₹ {{ booking.discount }}
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <strong>Total Paid</strong>
+            </td>
+
+            <td>
+
+                <strong>
+
+                    ₹ {{ booking.total_price }}
+
+                </strong>
+
+            </td>
+
+        </tr>
+
+    </table>
+
+</div>
+
+<div style="
+    background:#f3fff6;
+    border-left:5px solid #28a745;
+    padding:24px;
+    border-radius:12px;
+    margin-top:30px;
+    ">
+
+    <h3 style="
+        margin-top:0;
+        color:#28a745;
+        ">
+        ✅ Thank You!
+    </h3>
+
+    <p>
+
+        We sincerely appreciate your trust in Washly.
+
+        Your satisfaction motivates us to continue delivering
+        premium vehicle care every day.
+
+    </p>
+
+</div>
+
+<div style="
+    background:#fff7ef;
+    border-left:5px solid #ff6b22;
+    padding:24px;
+    border-radius:12px;
+    margin-top:25px;
+    ">
+
+    <h3 style="
+        margin-top:0;
+        color:#ff6b22;
+        ">
+        ⭐ We'd Love Your Feedback
+    </h3>
+
+    <p>
+
+        Your review helps us improve our services
+        and assists other customers in choosing Washly.
+
+    </p>
+
+</div>
+
+<div style="
+    text-align:center;
+    margin-top:35px;
+    ">
+
+    <a href="{{ review_url }}" class="button">
+
+        Leave a Review
+
+    </a>
+
+</div>
+
+<div style="
+    margin-top:35px;
+    text-align:center;
+    ">
+
+    <a href="{{ website_url }}" style="
+        display:inline-block;
+        padding:14px 32px;
+        border:2px solid #ff6b22;
+        border-radius:40px;
+        color:#ff6b22;
+        font-weight:bold;
+        text-decoration:none;
+        ">
+
+        Book Another Wash
+
+    </a>
+
+</div>
+
+<div style="
+    margin-top:35px;
+    padding:20px;
+    background:#fafafa;
+    border-radius:12px;
+    ">
+
+    <h3 style="
+        margin-top:0;
+        color:#1d212b;
+        ">
+        Need Assistance?
+    </h3>
+
+    <p>
+
+        If you have any questions regarding your booking
+        or would like to schedule another appointment,
+        our support team is always happy to help.
+
+    </p>
+
+    <p>
+
+        📧 {{ support_email }}
+
+    </p>
+
+</div>
+
+<p style="
+    margin-top:40px;
+    text-align:center;
+    font-size:16px;
+    ">
+
+    Thank you once again for choosing
+
+    <strong style="color:#ff6b22;">
+
+        Washly
+
+    </strong>
+
+    🚗✨
+
+</p>
+
+{% endblock %}

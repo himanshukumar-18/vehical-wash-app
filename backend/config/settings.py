@@ -44,14 +44,17 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    "django_celery_results",
+    "django_celery_beat",
 
     # our apps
     'users',
     "services.apps.ServicesConfig",
-    'bookings',
+    "bookings.apps.BookingsConfig",
     'payments',
     'vehicles',
-    'slots'
+    'slots',
+    'notifications'
 ]
 
 MIDDLEWARE = [
@@ -190,3 +193,35 @@ RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# -------------------------------------------------
+# Celery Configuration
+# -------------------------------------------------
+
+CELERY_BROKER_URL = config(
+    "CELERY_BROKER_URL",
+    default="redis://redis:6379/0",
+)
+
+CELERY_RESULT_BACKEND = config(
+    "CELERY_RESULT_BACKEND",
+    default="redis://redis:6379/0",
+)
+
+CELERY_ACCEPT_CONTENT = [
+    "json",
+]
+
+CELERY_TASK_SERIALIZER = "json"
+
+CELERY_RESULT_SERIALIZER = "json"
+
+CELERY_TIMEZONE = TIME_ZONE
+
+CELERY_ENABLE_UTC = True
+
+CELERY_TASK_TRACK_STARTED = True
+
+CELERY_TASK_TIME_LIMIT = 30 * 60
+
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
