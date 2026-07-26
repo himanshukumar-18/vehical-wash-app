@@ -41,6 +41,17 @@ class EmailService:
             fail_silently=False,
         )
 
+    @staticmethod
+    def _enqueue(task, *args):
+        # Queue only immutable identifiers. This keeps the transaction payload small
+        # and makes task retries observe the committed state.
+        task.delay(*args)
+
+    @classmethod
+    def _enqueue_booking(cls, booking, event):
+        from .tasks import send_booking_email
+        cls._enqueue(send_booking_email, booking.pk, event)
+
     # -------------------------------------------------------
     # Booking Confirmation
     # -------------------------------------------------------
@@ -60,6 +71,10 @@ class EmailService:
                 "support_email": settings.DEFAULT_FROM_EMAIL,
             },
         )
+
+    @classmethod
+    def enqueue_booking_confirmation(cls, booking):
+        cls._enqueue_booking(booking, "confirmation")
 
     # -------------------------------------------------------
     # Arrival OTP
@@ -81,6 +96,10 @@ class EmailService:
                 "support_email": settings.DEFAULT_FROM_EMAIL,
             },
         )
+
+    @classmethod
+    def enqueue_booking_otp(cls, booking):
+        cls._enqueue_booking(booking, "otp")
 
     # -------------------------------------------------------
     # Payment Successful
@@ -107,6 +126,30 @@ class EmailService:
             },
         )
 
+    @classmethod
+    def enqueue_payment_success(cls, payment):
+        from .tasks import send_payment_success_email
+        cls._enqueue(send_payment_success_email, str(payment.pk))
+
+    @classmethod
+    def send_refund_success(cls, refund):
+        cls.send_html_email(
+            subject=f"Refund successful • {refund.payment.booking.booking_number}",
+            template_name="booking_cancelled.html",
+            recipient_list=[refund.payment.booking.customer.email],
+            context={
+                "booking": refund.payment.booking,
+                "website_url": settings.FRONTEND_URL,
+                "support_email": settings.DEFAULT_FROM_EMAIL,
+                "refund": refund,
+            },
+        )
+
+    @classmethod
+    def enqueue_refund_success(cls, refund):
+        from .tasks import send_refund_success_email
+        cls._enqueue(send_refund_success_email, str(refund.pk))
+
     # -------------------------------------------------------
     # Booking Cancelled
     # -------------------------------------------------------
@@ -126,6 +169,10 @@ class EmailService:
                 "support_email": settings.DEFAULT_FROM_EMAIL,
             },
         )
+
+    @classmethod
+    def enqueue_booking_cancelled(cls, booking):
+        cls._enqueue_booking(booking, "cancelled")
 
     # -------------------------------------------------------
     # Booking Completed
@@ -147,3 +194,7 @@ class EmailService:
                 "support_email": settings.DEFAULT_FROM_EMAIL,
             },
         )
+
+    @classmethod
+    def enqueue_booking_completed(cls, booking):
+        cls._enqueue_booking(booking, "completed")

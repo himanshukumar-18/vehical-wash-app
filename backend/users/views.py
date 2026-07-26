@@ -4,6 +4,7 @@ from django_ratelimit.decorators import ratelimit
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.utils import timezone
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -44,18 +45,24 @@ class VerifyOTPView(APIView):
         except User.DoesNotExist:
             return Response({'error': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        otp_entry = OTP.objects.filter(user=user, otp=code, is_verified=False).order_by('-id').first()
+        otp_entry = OTP.objects.filter(user=user, otp=code, is_verified=False, expires_at__gt=timezone.now()).order_by('-id').first()
 
         if not otp_entry:
+            latest = OTP.objects.filter(user=user, is_verified=False, expires_at__gt=timezone.now()).order_by('-id').first()
+            if latest:
+                latest.attempts += 1
+                latest.save(update_fields=['attempts'])
             return Response({'error': 'invalid otp'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # mark otp entry verified
-        otp_entry.is_verified = True
-        otp_entry.save()
+        if otp_entry.attempts >= 5:
+            return Response({'error': 'too many verification attempts'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        # Mark every outstanding challenge consumed so an OTP cannot be replayed.
+        OTP.objects.filter(user=user, is_verified=False).update(is_verified=True)
 
         # mark user verified
         user.is_verified = True
-        user.save()
+        user.save(update_fields=['is_verified'])
 
         return Response({'message': 'email verified successfully'}, status=status.HTTP_200_OK)
 

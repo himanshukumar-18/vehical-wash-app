@@ -11,7 +11,7 @@ class IsAdminOrStaff(BasePermission):
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated
-            and request.user.role in ["admin", "staff"]
+            and request.user.role in ["admin", "manager", "staff"]
         )
 
 
@@ -40,7 +40,7 @@ class IsBookingOwner(BasePermission):
     def has_object_permission(self, request, view, obj):
 
         # Admin & Staff
-        if request.user.role in ["admin", "staff"]:
+        if request.user.role in ["admin", "manager", "staff"]:
             return True
 
         # Customer
@@ -57,7 +57,7 @@ class IsBookingOwnerOrReadOnly(BasePermission):
 
     def has_object_permission(self, request, view, obj):
 
-        if request.user.role in ["admin", "staff"]:
+        if request.user.role in ["admin", "manager", "staff"]:
             return True
 
         if request.method in SAFE_METHODS:
@@ -75,7 +75,7 @@ class CanCancelBooking(BasePermission):
 
     def has_object_permission(self, request, view, obj):
 
-        if request.user.role in ["admin", "staff"]:
+        if request.user.role in ["admin", "manager", "staff"]:
             return True
 
         return (
@@ -95,7 +95,7 @@ class CanUpdateBookingStatus(BasePermission):
 
         return (
             request.user.is_authenticated
-            and request.user.role in ["admin", "staff"]
+            and request.user.role in ["admin", "manager", "staff"]
         )
 
 
@@ -110,5 +110,5 @@ class CanViewDashboard(BasePermission):
 
         return (
             request.user.is_authenticated
-            and request.user.role in ["admin", "staff"]
+            and request.user.role in ["admin", "manager", "staff"]
         )

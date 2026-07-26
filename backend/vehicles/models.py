@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models import Q
 
 
 class Vehicle(models.Model):
@@ -10,7 +11,6 @@ class Vehicle(models.Model):
         SUV = "suv", "SUV"
         MUV = "muv", "MUV"
         LUXURY = "luxury", "Luxury"
-        BIKE = "bike", "Bike"
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -52,6 +52,14 @@ class Vehicle(models.Model):
 
     class Meta:
         ordering = ["-is_default", "-created_at"]
+        indexes = [models.Index(fields=["owner", "is_default"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner"],
+                condition=Q(is_default=True),
+                name="one_default_vehicle_per_owner",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.brand} {self.model} - {self.registration_number}"

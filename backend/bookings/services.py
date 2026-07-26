@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 from notifications.emails import EmailService
+from notifications.services import create_booking_notification
 
 from .models import Booking
 from slots.models import Slot
@@ -76,12 +77,13 @@ class BookingService:
 
         # Send emails only after successful commit
         transaction.on_commit(
-            lambda: EmailService.send_booking_confirmation(booking)
+            lambda: EmailService.enqueue_booking_confirmation(booking)
         )
 
         transaction.on_commit(
-            lambda: EmailService.send_booking_otp(booking)
+            lambda: EmailService.enqueue_booking_otp(booking)
         )
+        transaction.on_commit(lambda: create_booking_notification(booking, title="Booking created", body=f"Your booking {booking.booking_number} has been created."))
 
         return booking
 
@@ -131,8 +133,9 @@ class BookingService:
         )
 
         transaction.on_commit(
-            lambda: EmailService.send_booking_completed(booking)
+            lambda: EmailService.enqueue_booking_completed(booking)
         )
+        transaction.on_commit(lambda: create_booking_notification(booking, title="Service completed", body=f"Your service for {booking.booking_number} is complete."))
 
         return booking
 
@@ -157,8 +160,9 @@ class BookingService:
             slot.save(update_fields=["booked_count"])
 
         transaction.on_commit(
-            lambda: EmailService.send_booking_cancelled(booking)
+            lambda: EmailService.enqueue_booking_cancelled(booking)
         )
+        transaction.on_commit(lambda: create_booking_notification(booking, title="Booking cancelled", body=f"Your booking {booking.booking_number} was cancelled."))
 
         return booking
 
@@ -169,22 +173,10 @@ class BookingService:
         Update payment status to paid.
         """
 
-        booking.payment_status = Booking.PaymentStatus.PAID
-
-        booking.save(
-            update_fields=[
-        "payment_status",
-        ]
-        )
-
-        transaction.on_commit(
-            lambda: EmailService.send_payment_success(
-                booking=booking,
-                transaction_id=None,
-                payment_method="Cash",
-            )
-        )
-
+        # Keep the legacy admin endpoint consistent with the payment ledger.
+        from payments.services import PaymentService
+        PaymentService.mark_cash_paid(booking=booking, actor=None)
+        booking.refresh_from_db()
         return booking
 
     @staticmethod
@@ -194,10 +186,7 @@ class BookingService:
         Refund booking.
         """
 
-        booking.payment_status = Booking.PaymentStatus.REFUNDED
-        booking.save(update_fields=["payment_status"])
-
-        return booking
+        raise ValidationError("Use the payment refund workflow; direct status changes are not permitted.")
 
     @staticmethod
     @transaction.atomic
@@ -269,35 +258,6 @@ class BookingService:
 
     @staticmethod
     @transaction.atomic
-    def resend_otp(
-        booking,
-    ):
-        """
-        Generate and send a new OTP.
-        """
-
-        booking.arrival_otp = generate_arrival_otp()
-        booking.otp_created_at = timezone.now()
-        booking.otp_verified = False
-        booking.otp_verified_at = None
-
-        booking.save(
-            update_fields=[
-                "arrival_otp",
-                "otp_created_at",
-                "otp_verified",
-                "otp_verified_at",
-            ]
-        )
-
-        transaction.on_commit(
-            lambda: EmailService.send_booking_otp(booking)
-        )
-
-        return booking
-
-    @staticmethod
-    @transaction.atomic
     def resend_otp(booking):
         """
         Generate and resend arrival OTP.
@@ -332,7 +292,7 @@ class BookingService:
         )
 
         transaction.on_commit(
-            lambda: EmailService.send_booking_otp(
+            lambda: EmailService.enqueue_booking_otp(
                 booking
             )
         )

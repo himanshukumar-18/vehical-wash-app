@@ -4,6 +4,8 @@ from .models import User
 from .otp import OTP
 from .otp_services import generate_otp
 from .email_services import send_otp_email
+from django.utils import timezone
+from datetime import timedelta
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -11,24 +13,23 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        # NOTE: 'role' added here only for testing via Postman.
-        # Remove this field before going to production, so normal
-        # users can never set themselves as admin.
-        fields = ('id', 'fullname', 'email', 'password', 'role')
+        # Role assignment is an internal/admin-only operation. Exposing it here
+        # would let a public registration request create a privileged account.
+        fields = ('id', 'fullname', 'email', 'password')
 
     def create(self, validated_data):
         user = User.objects.create_user(
             fullname=validated_data['fullname'],
             email=validated_data['email'],
             password=validated_data['password'],
-            role=validated_data.get('role', User.Role.CUSTOMER)
+            role=User.Role.CUSTOMER,
         )
 
         # Generate OTP
         otp_code = generate_otp()
 
         # save otp to the database
-        OTP.objects.create(user=user, otp=otp_code)
+        OTP.objects.create(user=user, otp=otp_code, expires_at=timezone.now() + timedelta(minutes=10))
 
         # Send OTP email
         send_otp_email(user.email, otp_code)

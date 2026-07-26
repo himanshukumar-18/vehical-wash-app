@@ -7,10 +7,12 @@ urlpatterns = [
     path("admin/", admin.site.urls),
 
     path("api/auth/", include("users.urls")),
-    path("api/services/", include("services.urls")),
-    path("api/vehicles/", include("vehicles.urls")),
-    path("api/slots", include("slots.urls")),
-    path("api/bookings/", include("bookings.urls"))
+    path("api/", include("services.urls")),
+    path("api/", include("vehicles.urls")),
+    path("api/", include("slots.urls")),
+    path("api/", include("bookings.urls")),
+    path("api/", include("payments.urls")),
+    path("api/", include("notifications.urls")),
 ]
 
 if settings.DEBUG:

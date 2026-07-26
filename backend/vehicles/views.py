@@ -12,7 +12,7 @@ class VehicleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        if user.role in ["admin", "staff"]:
+        if user.role in ["admin", "manager", "staff"]:
             return Vehicle.objects.select_related("owner").all()
 
         return Vehicle.objects.select_related("owner").filter(owner=user)

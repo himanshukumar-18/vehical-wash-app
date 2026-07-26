@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Q, F
+from django.core.exceptions import ValidationError
 
 from services.models import Service
 from slots.models import Slot
@@ -106,11 +108,6 @@ class Booking(models.Model):
         default=PaymentStatus.PENDING,
     )
 
-    arrival_otp = models.CharField(
-        max_length=6,
-        blank=True,
-    )
-
     confirmed_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -169,10 +166,31 @@ class Booking(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["payment_status"]),
             models.Index(fields=["created_at"]),
+            models.Index(fields=["customer", "status", "created_at"]),
+            models.Index(fields=["slot", "status"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(base_price__gte=0) & Q(tax__gte=0) & Q(discount__gte=0) & Q(total_price__gte=0),
+                name="booking_amounts_non_negative",
+            ),
+            models.UniqueConstraint(
+                fields=["customer", "slot"],
+                condition=~Q(status="cancelled"),
+                name="one_active_booking_per_customer_slot",
+            ),
         ]
 
     def __str__(self):
         return f"{self.booking_number} - {self.customer.fullname}"
+
+    def clean(self):
+        if self.vehicle_id and self.customer_id and self.vehicle.owner_id != self.customer_id:
+            raise ValidationError({"vehicle": "The vehicle must belong to the booking customer."})
+        if self.total_price is not None and self.base_price is not None:
+            expected = self.base_price + (self.tax or Decimal("0")) - (self.discount or Decimal("0"))
+            if self.total_price != expected:
+                raise ValidationError({"total_price": "Total must equal base price plus tax minus discount."})
 
     @property
     def is_paid(self):

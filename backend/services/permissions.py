@@ -10,5 +10,5 @@ class IsAdminOrStaff(BasePermission):
         return bool(
             user
             and user.is_authenticated
-            and user.role in ["admin", "staff"]
+            and user.role in ["admin", "manager", "staff"]
         )
