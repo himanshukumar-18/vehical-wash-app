@@ -22,6 +22,7 @@ class Notification(models.Model):
     category = models.CharField(max_length=20, choices=Category.choices, default=Category.SYSTEM)
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.NORMAL)
     action_url = models.CharField(max_length=500, blank=True)
+    event_key = models.CharField(max_length=128, null=True, blank=True, unique=True, db_index=True)
     is_read = models.BooleanField(default=False, db_index=True)
     read_at = models.DateTimeField(null=True, blank=True)
     archived_at = models.DateTimeField(null=True, blank=True)
@@ -30,3 +31,6 @@ class Notification(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["recipient", "is_read", "created_at"])]
+
+    def __str__(self):
+        return f"{self.recipient.email} - {self.title}"

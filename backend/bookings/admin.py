@@ -137,11 +137,13 @@ class BookingAdmin(admin.ModelAdmin):
 
     @admin.display(description="Booking Date")
     def slot_date(self, obj):
-        return obj.slot.date
+        return obj.booking_date or (obj.slot.date if obj.slot else "N/A")
 
-    @admin.display(description="Slot")
+    @admin.display(description="Slot / Time")
     def slot_time(self, obj):
-        return f"{obj.slot.start_time} - {obj.slot.end_time}"
+        if obj.slot:
+            return f"{obj.slot.start_time} - {obj.slot.end_time}"
+        return "Doorstep Service"
 
     @admin.action(description="Mark selected bookings as Confirmed")
     def mark_confirmed(self, request, queryset):

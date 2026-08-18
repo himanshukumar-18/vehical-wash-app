@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.local
+.env.production
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.venv
+venv
+media/*
+!media/.gitkeep
+celerybeat-schedule*
+tests/__pycache__

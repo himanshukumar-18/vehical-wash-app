@@ -7,9 +7,7 @@ def validate_service(service):
     Ensure the selected service is active.
     """
     if not service.is_active:
-        raise ValidationError(
-            "Selected service is not available."
-        )
+        raise ValidationError("Selected service is not available.")
 
 
 def validate_vehicle(customer, vehicle):
@@ -17,61 +15,19 @@ def validate_vehicle(customer, vehicle):
     Ensure vehicle belongs to the logged-in customer.
     """
     if vehicle.owner_id != customer.id:
-        raise ValidationError(
-            "This vehicle does not belong to you."
-        )
+        raise ValidationError("This vehicle does not belong to you.")
 
 
-def validate_slot(slot):
-    """
-    Validate slot before booking.
-    """
-
-    if not slot.is_active:
-        raise ValidationError(
-            "Selected slot is inactive."
-        )
-
-    if slot.is_blocked:
-        raise ValidationError(
-            "Selected slot is blocked."
-        )
-
-    if slot.booked_count >= slot.capacity:
-        raise ValidationError(
-            "Selected slot is full."
-        )
-
-
-def validate_slot_date(slot):
+def validate_booking_date(booking_date):
     """
     Prevent booking for past dates.
     """
+    if not booking_date:
+        raise ValidationError("Service date is required.")
+
     today = timezone.localdate()
-
-    if slot.date < today:
-        raise ValidationError(
-            "Cannot book a past slot."
-        )
-
-
-def validate_duplicate_booking(customer, slot):
-    """
-    Customer cannot book the same slot twice.
-    """
-    from .models import Booking
-
-    exists = Booking.objects.filter(
-        customer=customer,
-        slot=slot,
-    ).exclude(
-        status=Booking.Status.CANCELLED
-    ).exists()
-
-    if exists:
-        raise ValidationError(
-            "You already have a booking for this slot."
-        )
+    if booking_date < today:
+        raise ValidationError("Cannot book a service for a past date.")
 
 
 def validate_booking_status(booking):
@@ -82,9 +38,7 @@ def validate_booking_status(booking):
         booking.Status.PENDING,
         booking.Status.CONFIRMED,
     ]:
-        raise ValidationError(
-            "Booking cannot be cancelled."
-        )
+        raise ValidationError("Booking cannot be cancelled.")
 
 
 def validate_payment_status(booking):
@@ -92,22 +46,14 @@ def validate_payment_status(booking):
     Booking must be paid before completion.
     """
     if booking.payment_status != booking.PaymentStatus.PAID:
-        raise ValidationError(
-            "Payment is not completed."
-        )
+        raise ValidationError("Payment is not completed.")
 
 
-def validate_booking_available(customer, vehicle, service, slot):
+def validate_booking_available(customer, vehicle, service, booking_date=None, slot=None):
     """
-    Master validator before creating booking.
+    Master validator before creating mobile car wash booking.
     """
-
     validate_vehicle(customer, vehicle)
-
     validate_service(service)
-
-    validate_slot(slot)
-
-    validate_slot_date(slot)
-
-    validate_duplicate_booking(customer, slot)
+    if booking_date:
+        validate_booking_date(booking_date)

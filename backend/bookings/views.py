@@ -12,7 +12,6 @@ from .serializers import (
     BookingDetailSerializer,
     BookingListSerializer,
     CancelBookingSerializer,
-    ChangeSlotSerializer,
     PaymentStatusSerializer,
 )
 from .services import BookingService
@@ -106,8 +105,9 @@ class BookingViewSet(GenericViewSet):
             customer=request.user,
             vehicle=data["vehicle"],
             service=data["service"],
-            slot=data["slot"],
+            booking_date=data["booking_date"],
             address=data["address"],
+            slot=data.get("slot"),
             customer_note=data.get("customer_note", ""),
             discount_percentage=data.get("discount_percentage", 0),
         )
@@ -147,36 +147,7 @@ class BookingViewSet(GenericViewSet):
 
         return Response(BookingDetailSerializer(booking).data)
 
-    # ------------------------------------------------------------------
-    # POST /api/bookings/{id}/change-slot/
-    # ------------------------------------------------------------------
 
-    @action(detail=True, methods=["post"], url_path="change-slot")
-    def change_slot(self, request, pk=None):
-        """
-        Customer requests a different time slot for their booking.
-        Only allowed if booking is still pending or confirmed.
-        """
-        booking = self._get_customer_booking(pk)
-        if booking is None:
-            return Response(
-                {"detail": "Booking not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if not booking.can_cancel:
-            return Response(
-                {"detail": "Slot cannot be changed at this stage."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        serializer = ChangeSlotSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        new_slot = serializer.validated_data["slot_id"]
-        booking = BookingService.change_slot(booking, new_slot)
-
-        return Response(BookingDetailSerializer(booking).data)
 
     # ------------------------------------------------------------------
     # Private helper

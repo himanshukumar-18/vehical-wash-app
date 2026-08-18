@@ -1,199 +1,85 @@
 {% extends "base_email.html" %}
 
-{% block title %}
-Payment Successful
-{% endblock %}
+{% block title %}💳 Payment Successful • The Black Wash{% endblock %}
 
 {% block content %}
 
-<h1>
-    💳 Payment Successful
-</h1>
+<h1>💳 Payment Received — You're All Set!</h1>
 
 <p>
-    Hello <strong>{{ booking.customer.fullname }}</strong>,
+    Hi <strong>{{ booking.customer.fullname }}</strong>,
 </p>
 
 <p>
-    We've successfully received your payment.
-    Your booking is now confirmed and your appointment has been secured.
+    We have successfully received your payment for booking <strong>#{{ booking.booking_number }}</strong>.
 </p>
 
 <div class="card">
-
-    <h2 style="margin-top:0;color:#1d212b;">
+    <h2 style="margin-top: 0; font-size: 16px;">
         Payment Receipt
     </h2>
 
     <table class="table">
-
-        <tr>
-            <td>Booking Number</td>
-            <td>{{ booking.booking_number }}</td>
-        </tr>
-
         <tr>
             <td>Transaction ID</td>
-            <td>{{ transaction_id|default:"N/A" }}</td>
+            <td>{{ transaction_id|default:"PAYMENT-CONFIRMED" }}</td>
         </tr>
-
+        <tr>
+            <td>Booking Reference</td>
+            <td>#{{ booking.booking_number }}</td>
+        </tr>
         <tr>
             <td>Payment Method</td>
-            <td>{{ payment_method|default:"Online Payment" }}</td>
+            <td>{{ payment_method|default:"Razorpay Online" }}</td>
         </tr>
-
+        <tr>
+            <td>Amount Paid</td>
+            <td><strong style="color: #19C7F3; font-size: 18px;">₹ {{ amount|default:booking.total_price }}</strong></td>
+        </tr>
         <tr>
             <td>Payment Status</td>
-            <td>
-                <span class="badge">
-                    PAID
-                </span>
-            </td>
+            <td><span class="badge" style="background-color: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); color: #22c55e;">SUCCESSFUL</span></td>
         </tr>
-
-        <tr>
-            <td>Payment Date</td>
-            <td>{{ payment_date|default:booking.updated_at }}</td>
-        </tr>
-
     </table>
-
 </div>
 
 <div class="card">
-
-    <h2 style="margin-top:0;color:#1d212b;">
-        Booking Details
+    <h2 style="margin-top: 0; font-size: 16px;">
+        Service Details
     </h2>
 
     <table class="table">
-
-        <tr>
-            <td>Vehicle</td>
-            <td>
-                {{ booking.vehicle.brand }}
-                {{ booking.vehicle.model }}
-            </td>
-        </tr>
-
-        <tr>
-            <td>Registration</td>
-            <td>{{ booking.vehicle.registration_number }}</td>
-        </tr>
-
         <tr>
             <td>Service</td>
             <td>{{ booking.service.name }}</td>
         </tr>
-
         <tr>
-            <td>Date</td>
-            <td>{{ booking.slot.date }}</td>
+            <td>Vehicle</td>
+            <td>{{ booking.vehicle.brand }} {{ booking.vehicle.model }}</td>
         </tr>
-
         <tr>
-            <td>Time</td>
+            <td>Service Date</td>
             <td>
-                {{ booking.slot.start_time }}
-                -
-                {{ booking.slot.end_time }}
+                {% if booking.booking_date %}
+                    {{ booking.booking_date }}
+                {% elif booking.slot %}
+                    {{ booking.slot.date }}
+                {% else %}
+                    Scheduled Date
+                {% endif %}
             </td>
         </tr>
-
     </table>
-
 </div>
 
-<div class="card">
-
-    <h2 style="margin-top:0;color:#1d212b;">
-        Payment Summary
-    </h2>
-
-    <table class="table">
-
-        <tr>
-            <td>Service Price</td>
-            <td>₹ {{ booking.base_price }}</td>
-        </tr>
-
-        <tr>
-            <td>Tax</td>
-            <td>₹ {{ booking.tax }}</td>
-        </tr>
-
-        <tr>
-            <td>Discount</td>
-            <td>₹ {{ booking.discount }}</td>
-        </tr>
-
-        <tr>
-            <td>
-                <strong>Total Paid</strong>
-            </td>
-
-            <td>
-                <strong>
-                    ₹ {{ booking.total_price }}
-                </strong>
-            </td>
-
-        </tr>
-
-    </table>
-
-</div>
-
-<div style="
-        background:#f4fff5;
-        border-left:5px solid #28a745;
-        padding:18px;
-        border-radius:12px;
-        margin-top:25px;
-    ">
-
-    <strong>What's Next?</strong>
-
-    <ul style="
-            margin-top:12px;
-            padding-left:20px;
-            line-height:1.8;
-            color:#555;
-        ">
-        <li>Arrive 10–15 minutes before your scheduled appointment.</li>
-        <li>Bring your booking confirmation email.</li>
-        <li>Show your arrival OTP at check-in.</li>
-        <li>Our team will begin the wash once OTP verification is complete.</li>
-    </ul>
-
-</div>
-
-<div style="
-        text-align:center;
-        margin-top:35px;
-    ">
-
-    <a href="{{ website_url }}" class="button">
-        View Booking
+<div style="text-align: center; margin-top: 28px;">
+    <a href="{{ website_url }}/my-booking" class="button">
+        View Receipt & Booking
     </a>
-
 </div>
 
-<p style="
-        margin-top:35px;
-        text-align:center;
-    ">
-    Need help with your payment or booking?
-    Contact us anytime at
-    <strong>{{ support_email }}</strong>.
-</p>
-
-<p style="
-        text-align:center;
-        font-weight:bold;
-    ">
-    Thank you for choosing
-    <span style="color:#ff6b22;">Washly</span> 🚗
+<p style="margin-top: 28px; text-align: center; font-size: 13px; color: #707A82;">
+    Thank you for choosing <strong>The Black Wash</strong>! 💳🚗
 </p>
 
 {% endblock %}

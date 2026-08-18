@@ -1,15 +1,13 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-from django.core.exceptions import ValidationError
 
 from notifications.emails import EmailService
-from notifications.services import create_booking_notification
+from notifications.services import NotificationService
 
 from .models import Booking
-from slots.models import Slot
-
 from .utils import (
     calculate_discount,
     calculate_tax,
@@ -17,7 +15,6 @@ from .utils import (
     generate_arrival_otp,
     generate_booking_number,
 )
-
 from .validators import (
     validate_booking_available,
     validate_booking_status,
@@ -27,7 +24,7 @@ from .validators import (
 
 class BookingService:
     """
-    Booking business logic.
+    Booking business logic for Mobile Van Car Wash with transaction-safe notifications.
     """
 
     @staticmethod
@@ -37,20 +34,16 @@ class BookingService:
         customer,
         vehicle,
         service,
-        slot,
+        booking_date,
         address,
         customer_note="",
         discount_percentage=Decimal("0.00"),
+        slot=None,
     ):
         """
-        Production-safe booking creation.
-        Prevents race conditions using row locking.
+        Production-safe mobile car wash booking creation.
         """
-
-        # Lock slot row to prevent race condition
-        slot = Slot.objects.select_for_update().get(pk=slot.pk)
-
-        validate_booking_available(customer, vehicle, service, slot)
+        validate_booking_available(customer, vehicle, service, booking_date=booking_date, slot=slot)
 
         base_price = service.price
         tax = calculate_tax(base_price)
@@ -62,6 +55,7 @@ class BookingService:
             customer=customer,
             vehicle=vehicle,
             service=service,
+            booking_date=booking_date,
             slot=slot,
             address=address,
             customer_note=customer_note,
@@ -72,18 +66,14 @@ class BookingService:
             arrival_otp=generate_arrival_otp(),
         )
 
-        slot.booked_count += 1
-        slot.save(update_fields=["booked_count"])
+        if slot:
+            slot.booked_count += 1
+            slot.save(update_fields=["booked_count"])
 
-        # Send emails only after successful commit
-        transaction.on_commit(
-            lambda: EmailService.enqueue_booking_confirmation(booking)
-        )
-
-        transaction.on_commit(
-            lambda: EmailService.enqueue_booking_otp(booking)
-        )
-        transaction.on_commit(lambda: create_booking_notification(booking, title="Booking created", body=f"Your booking {booking.booking_number} has been created."))
+        # Notifications queued on transaction commit
+        transaction.on_commit(lambda b=booking: EmailService.enqueue_booking_confirmation(b))
+        transaction.on_commit(lambda b=booking: EmailService.enqueue_booking_otp(b))
+        transaction.on_commit(lambda b=booking: NotificationService.notify_booking_created(b))
 
         return booking
 
@@ -91,26 +81,35 @@ class BookingService:
     @transaction.atomic
     def confirm_booking(booking):
         """
-        Confirm booking.
+        Owner/Admin confirms booking.
         """
+        if booking.status == Booking.Status.CONFIRMED:
+            return booking
 
         booking.status = Booking.Status.CONFIRMED
         booking.confirmed_at = timezone.now()
-        booking.save(update_fields=["status", "confirmed_at"])
-
+        booking.save(update_fields=["status", "confirmed_at", "updated_at"])
+        transaction.on_commit(lambda b=booking: NotificationService.notify_booking_confirmed(b))
+        transaction.on_commit(lambda b=booking: EmailService.enqueue_booking_confirmation(b))
         return booking
 
     @staticmethod
     @transaction.atomic
     def start_booking(booking):
         """
-        Start washing.
+        Team starts washing.
         """
-
         booking.status = Booking.Status.IN_PROGRESS
         booking.started_at = timezone.now()
-        booking.save(update_fields=["status", "started_at"])
-
+        booking.save(update_fields=["status", "started_at", "updated_at"])
+        transaction.on_commit(
+            lambda b=booking: NotificationService.create_notification(
+                recipient=b.customer,
+                title="Service Started",
+                body=f"Your car wash service for booking #{b.booking_number} has started.",
+                action_url=f"/bookings/{b.booking_number}",
+            )
+        )
         return booking
 
     @staticmethod
@@ -118,52 +117,39 @@ class BookingService:
     def complete_booking(booking):
         """
         Complete booking.
+        Auto-settles cash payment if unpaid upon completion.
         """
-
-        validate_payment_status(booking)
+        if booking.payment_status != Booking.PaymentStatus.PAID:
+            from payments.services import PaymentService
+            PaymentService.mark_cash_paid(booking=booking, actor=None)
+            booking.refresh_from_db()
 
         booking.status = Booking.Status.COMPLETED
         booking.completed_at = timezone.now()
+        booking.save(update_fields=["status", "completed_at", "updated_at"])
 
-        booking.save(
-            update_fields=[
-            "status",
-            "completed_at",
-            ]
-        )
-
-        transaction.on_commit(
-            lambda: EmailService.enqueue_booking_completed(booking)
-        )
-        transaction.on_commit(lambda: create_booking_notification(booking, title="Service completed", body=f"Your service for {booking.booking_number} is complete."))
-
+        transaction.on_commit(lambda b=booking: EmailService.enqueue_booking_completed(b))
+        transaction.on_commit(lambda b=booking: NotificationService.notify_booking_completed(b))
         return booking
 
     @staticmethod
     @transaction.atomic
     def cancel_booking(booking):
         """
-        Cancel booking safely and release slot.
+        Cancel booking safely.
         """
-
         validate_booking_status(booking)
-
-        # Lock slot row before decrementing
-        slot = Slot.objects.select_for_update().get(pk=booking.slot.pk)
 
         booking.status = Booking.Status.CANCELLED
         booking.cancelled_at = timezone.now()
-        booking.save(update_fields=["status", "cancelled_at"])
+        booking.save(update_fields=["status", "cancelled_at", "updated_at"])
 
-        if slot.booked_count > 0:
-            slot.booked_count -= 1
-            slot.save(update_fields=["booked_count"])
+        if booking.slot and booking.slot.booked_count > 0:
+            booking.slot.booked_count -= 1
+            booking.slot.save(update_fields=["booked_count"])
 
-        transaction.on_commit(
-            lambda: EmailService.enqueue_booking_cancelled(booking)
-        )
-        transaction.on_commit(lambda: create_booking_notification(booking, title="Booking cancelled", body=f"Your booking {booking.booking_number} was cancelled."))
-
+        transaction.on_commit(lambda b=booking: EmailService.enqueue_booking_cancelled(b))
+        transaction.on_commit(lambda b=booking: NotificationService.notify_booking_cancelled(b))
         return booking
 
     @staticmethod
@@ -172,8 +158,6 @@ class BookingService:
         """
         Update payment status to paid.
         """
-
-        # Keep the legacy admin endpoint consistent with the payment ledger.
         from payments.services import PaymentService
         PaymentService.mark_cash_paid(booking=booking, actor=None)
         booking.refresh_from_db()
@@ -182,78 +166,31 @@ class BookingService:
     @staticmethod
     @transaction.atomic
     def refund_booking(booking):
-        """
-        Refund booking.
-        """
-
         raise ValidationError("Use the payment refund workflow; direct status changes are not permitted.")
 
     @staticmethod
     @transaction.atomic
-    def change_slot(booking, new_slot):
-        """
-        Change booking slot safely.
-        Releases old slot and locks new slot before assigning.
-        """
-
-        # Lock both slots to prevent race conditions
-        old_slot = Slot.objects.select_for_update().get(pk=booking.slot.pk)
-        new_slot = Slot.objects.select_for_update().get(pk=new_slot.pk)
-
-        validate_booking_available(
-            booking.customer,
-            booking.vehicle,
-            booking.service,
-            new_slot,
-        )
-
-        if old_slot.booked_count > 0:
-            old_slot.booked_count -= 1
-            old_slot.save(update_fields=["booked_count"])
-
-        new_slot.booked_count += 1
-        new_slot.save(update_fields=["booked_count"])
-
-        booking.slot = new_slot
-        booking.save(update_fields=["slot"])
-
-        return booking
-
-    @staticmethod
-    @transaction.atomic
-    def verify_otp(
-        booking,
-        otp,
-    ):
+    def verify_otp(booking, otp):
         """
         Verify customer arrival OTP.
         """
-
         if booking.otp_verified:
-            raise ValidationError(
-                "OTP already verified."
-            )
-
-        if booking.is_otp_expired:
-            raise ValidationError(
-                "OTP has expired."
-            )
-
+            raise ValidationError("OTP already verified.")
         if booking.arrival_otp != otp:
-            raise ValidationError(
-                "Invalid OTP."
-            )
+            raise ValidationError("Invalid OTP.")
 
         booking.otp_verified = True
         booking.otp_verified_at = timezone.now()
+        booking.save(update_fields=["otp_verified", "otp_verified_at"])
 
-        booking.save(
-        update_fields=[
-            "otp_verified",
-            "otp_verified_at",
-        ]
+        transaction.on_commit(
+            lambda b=booking: NotificationService.create_notification(
+                recipient=b.customer,
+                title="Arrival OTP Verified",
+                body=f"Your arrival OTP for booking #{b.booking_number} was verified successfully.",
+                action_url=f"/bookings/{b.booking_number}",
+            )
         )
-
         return booking
 
     @staticmethod
@@ -262,39 +199,16 @@ class BookingService:
         """
         Generate and resend arrival OTP.
         """
-
-        # Optional: Prevent frequent resend requests
         if booking.otp_created_at:
-            seconds = (
-                timezone.now() - booking.otp_created_at
-            ).total_seconds()
-
+            seconds = (timezone.now() - booking.otp_created_at).total_seconds()
             if seconds < 60:
-                raise ValidationError(
-                    f"Please wait {int(60-seconds)} seconds before requesting another OTP."
-                )
+                raise ValidationError(f"Please wait {int(60-seconds)} seconds before requesting another OTP.")
 
         booking.arrival_otp = generate_arrival_otp()
-
         booking.otp_created_at = timezone.now()
-
         booking.otp_verified = False
-
         booking.otp_verified_at = None
 
-        booking.save(
-            update_fields=[
-                "arrival_otp",
-                "otp_created_at",
-                "otp_verified",
-                "otp_verified_at",
-            ]
-        )
-
-        transaction.on_commit(
-            lambda: EmailService.enqueue_booking_otp(
-                booking
-            )
-        )
-
+        booking.save(update_fields=["arrival_otp", "otp_created_at", "otp_verified", "otp_verified_at"])
+        transaction.on_commit(lambda b=booking: EmailService.enqueue_booking_otp(b))
         return booking

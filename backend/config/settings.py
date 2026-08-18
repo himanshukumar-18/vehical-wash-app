@@ -97,18 +97,27 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+import sys
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT'),
+if 'test' in sys.argv or config('USE_SQLITE', default=False, cast=bool):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='washdb'),
+            'USER': config('DB_USER', default='washuser'),
+            'PASSWORD': config('DB_PASSWORD', default='washpass'),
+            'HOST': config('DB_HOST', default='db'),
+            'PORT': config('DB_PORT', default='5432'),
+        }
+    }
+
 
 
 # Password validation
@@ -168,6 +177,18 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': config('API_PAGE_SIZE', default=25, cast=int),
+    'EXCEPTION_HANDLER': 'config.exceptions.custom_exception_handler',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '1000/day',
+        'user': '10000/day',
+        'auth': '30/minute',
+        'otp': '10/minute',
+        'payment': '100/minute',
+    },
 }
 
 SIMPLE_JWT = {
@@ -187,7 +208,7 @@ EMAIL_HOST = config('EMAIL_HOST')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='').replace(' ', '').strip()
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Razorpay settings
@@ -208,15 +229,20 @@ SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
 # Celery Configuration
 # -------------------------------------------------
 
-CELERY_BROKER_URL = config(
-    "CELERY_BROKER_URL",
-    default="redis://redis:6379/0",
-)
-
-CELERY_RESULT_BACKEND = config(
-    "CELERY_RESULT_BACKEND",
-    default="redis://redis:6379/0",
-)
+if 'test' in sys.argv:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
+else:
+    CELERY_BROKER_URL = config(
+        "CELERY_BROKER_URL",
+        default="redis://redis:6379/0",
+    )
+    CELERY_RESULT_BACKEND = config(
+        "CELERY_RESULT_BACKEND",
+        default="redis://redis:6379/0",
+    )
 
 CELERY_ACCEPT_CONTENT = [
     "json",

@@ -3,34 +3,25 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Q, F
-from django.core.exceptions import ValidationError
+from django.db.models import Q
 
 from services.models import Service
 from slots.models import Slot
 from vehicles.models import Vehicle
 
-from datetime import timedelta
-from django.utils import timezone
-
 
 class Booking(models.Model):
-    """
-    Customer booking for a vehicle wash service.
-    """
-
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
+        PENDING = "pending", "Pending Confirmation"
         CONFIRMED = "confirmed", "Confirmed"
         IN_PROGRESS = "in_progress", "In Progress"
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
-        NO_SHOW = "no_show", "No Show"
 
     class PaymentStatus(models.TextChoices):
-        PENDING = "pending", "Pending"
+        PENDING = "pending", "Payment Pending"
         PAID = "paid", "Paid"
-        FAILED = "failed", "Failed"
+        FAILED = "failed", "Payment Failed"
         REFUNDED = "refunded", "Refunded"
 
     booking_number = models.CharField(
@@ -41,7 +32,9 @@ class Booking(models.Model):
 
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="bookings",
     )
 
@@ -59,8 +52,15 @@ class Booking(models.Model):
 
     slot = models.ForeignKey(
         Slot,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="bookings",
+    )
+
+    booking_date = models.DateField(
+        null=True,
+        blank=True,
     )
 
     address = models.TextField()
@@ -127,27 +127,27 @@ class Booking(models.Model):
         null=True,
         blank=True,
     )
-    
+
     arrival_otp = models.CharField(
-    max_length=6,
-    blank=True,
-    help_text="OTP used to verify customer arrival."
-)
+        max_length=6,
+        blank=True,
+        help_text="OTP used to verify customer arrival.",
+    )
 
     otp_verified = models.BooleanField(
         default=False,
-        help_text="Whether the arrival OTP has been verified."
+        help_text="Whether the arrival OTP has been verified.",
     )
 
     otp_created_at = models.DateTimeField(
         auto_now_add=True,
-        help_text="Time when the OTP was generated."
+        help_text="Time when the OTP was generated.",
     )
 
     otp_verified_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="Time when the OTP was successfully verified."
+        help_text="Time when the OTP was successfully verified.",
     )
 
     created_at = models.DateTimeField(
@@ -167,41 +167,21 @@ class Booking(models.Model):
             models.Index(fields=["payment_status"]),
             models.Index(fields=["created_at"]),
             models.Index(fields=["customer", "status", "created_at"]),
-            models.Index(fields=["slot", "status"]),
+            models.Index(fields=["booking_date", "status"]),
         ]
         constraints = [
             models.CheckConstraint(
                 condition=Q(base_price__gte=0) & Q(tax__gte=0) & Q(discount__gte=0) & Q(total_price__gte=0),
                 name="booking_amounts_non_negative",
             ),
-            models.UniqueConstraint(
-                fields=["customer", "slot"],
-                condition=~Q(status="cancelled"),
-                name="one_active_booking_per_customer_slot",
-            ),
         ]
 
     def __str__(self):
         return f"{self.booking_number} - {self.customer.fullname}"
 
-    def clean(self):
-        if self.vehicle_id and self.customer_id and self.vehicle.owner_id != self.customer_id:
-            raise ValidationError({"vehicle": "The vehicle must belong to the booking customer."})
-        if self.total_price is not None and self.base_price is not None:
-            expected = self.base_price + (self.tax or Decimal("0")) - (self.discount or Decimal("0"))
-            if self.total_price != expected:
-                raise ValidationError({"total_price": "Total must equal base price plus tax minus discount."})
-
-    @property
-    def is_paid(self):
-        return self.payment_status == self.PaymentStatus.PAID
-
     @property
     def can_cancel(self):
-        return self.status in [
-            self.Status.PENDING,
-            self.Status.CONFIRMED,
-        ]
+        return self.status in [self.Status.PENDING, self.Status.CONFIRMED]
 
     @property
     def can_start(self):
@@ -209,16 +189,8 @@ class Booking(models.Model):
 
     @property
     def can_complete(self):
-        return self.status == self.Status.IN_PROGRESS
-    
-    @property
-    def is_otp_expired(self):
-        """
-        Returns True if the OTP has expired.
-        """
-        if not self.otp_created_at:
-            return True
+        return self.status in [self.Status.CONFIRMED, self.Status.IN_PROGRESS]
 
-        return timezone.now() > (
-            self.otp_created_at + timedelta(minutes=30)
-        )
+    @property
+    def is_paid(self):
+        return self.payment_status == self.PaymentStatus.PAID

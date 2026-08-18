@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
@@ -26,6 +27,18 @@ class Payment(models.Model):
         REFUNDED = "refunded", "Refunded"
         REFUND_FAILED = "refund_failed", "Refund failed"
 
+    VALID_TRANSITIONS = {
+        Status.PENDING: {Status.AUTHORIZED, Status.PAID, Status.FAILED, Status.CANCELLED, Status.EXPIRED},
+        Status.AUTHORIZED: {Status.PAID, Status.FAILED, Status.CANCELLED, Status.EXPIRED},
+        Status.PAID: {Status.REFUND_INITIATED, Status.REFUNDED},
+        Status.FAILED: {Status.PAID},  # Settlement of retried payment attempt
+        Status.CANCELLED: set(),
+        Status.EXPIRED: set(),
+        Status.REFUND_INITIATED: {Status.REFUNDED, Status.REFUND_FAILED},
+        Status.REFUNDED: set(),
+        Status.REFUND_FAILED: {Status.REFUNDED},
+    }
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     booking = models.ForeignKey("bookings.Booking", on_delete=models.PROTECT, related_name="payments")
     amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
@@ -45,13 +58,38 @@ class Payment(models.Model):
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["booking", "status"]), models.Index(fields=["provider", "created_at"])]
 
+    def can_transition_to(self, new_status):
+        if self.status == new_status:
+            return True
+        allowed = self.VALID_TRANSITIONS.get(self.status, set())
+        return new_status in allowed
+
+    def transition_to(self, new_status, save=True, **kwargs):
+        if self.status == new_status:
+            return False
+        if not self.can_transition_to(new_status):
+            raise ValidationError(
+                f"Invalid payment state transition from {self.status} to {new_status}."
+            )
+        self.status = new_status
+        update_fields = ["status", "updated_at"]
+        for key, val in kwargs.items():
+            setattr(self, key, val)
+            update_fields.append(key)
+        if save:
+            self.save(update_fields=update_fields)
+        return True
+
     def mark_paid(self, provider_payment_id=None):
         if self.status == self.Status.PAID:
+            if provider_payment_id and not self.provider_payment_id:
+                self.provider_payment_id = provider_payment_id
+                self.save(update_fields=["provider_payment_id", "updated_at"])
             return False
-        self.status = self.Status.PAID
-        self.provider_payment_id = provider_payment_id or self.provider_payment_id
-        self.paid_at = timezone.now()
-        self.save(update_fields=["status", "provider_payment_id", "paid_at", "updated_at"])
+        
+        provider_id = provider_payment_id or self.provider_payment_id
+        paid_time = timezone.now()
+        self.transition_to(self.Status.PAID, provider_payment_id=provider_id, paid_at=paid_time)
         return True
 
 

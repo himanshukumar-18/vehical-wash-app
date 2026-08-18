@@ -1,11 +1,16 @@
+from datetime import timedelta
+from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from notifications.emails import EmailService
+from notifications.services import NotificationService
+
+from .email_services import send_otp_email
 from .models import User
 from .otp import OTP
 from .otp_services import generate_otp
-from .email_services import send_otp_email
-from django.utils import timezone
-from datetime import timedelta
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -13,8 +18,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        # Role assignment is an internal/admin-only operation. Exposing it here
-        # would let a public registration request create a privileged account.
         fields = ('id', 'fullname', 'email', 'password')
 
     def create(self, validated_data):
@@ -28,11 +31,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         # Generate OTP
         otp_code = generate_otp()
 
-        # save otp to the database
+        # Save OTP to database
         OTP.objects.create(user=user, otp=otp_code, expires_at=timezone.now() + timedelta(minutes=10))
 
-        # Send OTP email
-        send_otp_email(user.email, otp_code)
+        # Event 1 — OTP Request (Transaction-safe notification & HTML email)
+        transaction.on_commit(lambda: NotificationService.notify_user_otp(user, otp_code))
+        transaction.on_commit(lambda: EmailService.enqueue_user_otp(user.email, otp_code, user.fullname))
 
         return user
 

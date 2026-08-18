@@ -1,8 +1,17 @@
 from django.urls import path
 
-from .views import CreateOrderView, MarkPaidView, PaymentDetailView, RazorpayWebhookView, RefundRequestView, VerifyPaymentView
+from .views import (
+    AdminPaymentListView,
+    CreateOrderView,
+    MarkPaidView,
+    PaymentDetailView,
+    RazorpayWebhookView,
+    RefundRequestView,
+    VerifyPaymentView,
+)
 
 urlpatterns = [
+    path("admin/", AdminPaymentListView.as_view(), name="admin-payment-list"),
     path("orders/razorpay/", CreateOrderView.as_view(), name="razorpay-order"),
     path("verify/razorpay/", VerifyPaymentView.as_view(), name="razorpay-verify"),
     path("webhooks/razorpay/", RazorpayWebhookView.as_view(), name="razorpay-webhook"),

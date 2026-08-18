@@ -1,0 +1,51 @@
+{% extends "base_email.html" %}
+
+{% block title %}🎉 Welcome to The Black Wash!{% endblock %}
+
+{% block content %}
+
+<h1>🎉 Welcome to The Black Wash!</h1>
+
+<p>
+    Hi <strong>{{ user_name|default:"Valued Customer" }}</strong>,
+</p>
+
+<p>
+    Your email has been verified and your account is now fully active! 😎
+</p>
+
+<p>
+    We bring showroom-quality mobile car wash and detailing directly to your service location with our fully equipped washing van.
+</p>
+
+<div class="card">
+    <h2 style="margin-top: 0; font-size: 16px; color: #19C7F3;">
+        ✨ What You Can Do Now:
+    </h2>
+    <table class="table">
+        <tr>
+            <td>Mobile Doorstep Wash</td>
+            <td>Book washing van directly to your doorstep</td>
+        </tr>
+        <tr>
+            <td>Select Preferred Date</td>
+            <td>Choose the date that fits your schedule</td>
+        </tr>
+        <tr>
+            <td>Live Booking Updates</td>
+            <td>Track booking confirmation & technician arrival</td>
+        </tr>
+    </table>
+</div>
+
+<div style="text-align: center; margin-top: 28px;">
+    <a href="{{ website_url }}" class="button">
+        Book Doorstep Service Now
+    </a>
+</div>
+
+<p style="margin-top: 28px; text-align: center; font-size: 13px; color: #707A82;">
+    Thank you for choosing <strong>The Black Wash</strong> 🚗✨
+</p>
+
+{% endblock %}

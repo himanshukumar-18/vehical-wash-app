@@ -6,6 +6,7 @@ from .models import Slot
 class SlotSerializer(serializers.ModelSerializer):
     remaining_capacity = serializers.ReadOnlyField()
     status = serializers.ReadOnlyField()
+    is_available = serializers.SerializerMethodField()
 
     class Meta:
         model = Slot
@@ -20,6 +21,7 @@ class SlotSerializer(serializers.ModelSerializer):
             "status",
             "is_active",
             "is_blocked",
+            "is_available",
             "created_at",
             "updated_at",
         ]
@@ -28,9 +30,13 @@ class SlotSerializer(serializers.ModelSerializer):
             "booked_count",
             "remaining_capacity",
             "status",
+            "is_available",
             "created_at",
             "updated_at",
         )
+
+    def get_is_available(self, obj):
+        return obj.is_active and not obj.is_blocked and not obj.is_full
 
 
 class GenerateSlotSerializer(serializers.Serializer):

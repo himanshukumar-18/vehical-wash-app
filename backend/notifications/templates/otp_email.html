@@ -1,144 +1,44 @@
 {% extends "base_email.html" %}
 
-{% block title %}
-Vehicle Arrival OTP
-{% endblock %}
+{% block title %}🔐 Verification Code • The Black Wash{% endblock %}
 
 {% block content %}
 
-<h1>
-    🔐 Vehicle Arrival OTP
-</h1>
+<h1>🔐 Verification Code</h1>
 
 <p>
-    Hello <strong>{{ booking.customer.fullname }}</strong>,
+    Hello <strong>{{ user_name|default:"Valued Customer" }}</strong>,
 </p>
 
 <p>
-    Your booking has been confirmed.
-    Please use the OTP below when you arrive at our service center.
+    Welcome to <strong>The Black Wash</strong>! Please use the 6-digit verification code below to verify your email address and activate your account.
 </p>
 
-<div class="card">
-
-    <div style="text-align:center;">
-
-        <div style="
-                display:inline-block;
-                background:#ff6b22;
-                color:#ffffff;
-                padding:20px 45px;
-                border-radius:16px;
-                font-size:38px;
-                font-weight:800;
-                letter-spacing:12px;
-            ">
-            {{ otp }}
-        </div>
-
+<div class="card" style="text-align: center;">
+    <div class="otp-box">
+        {{ otp }}
     </div>
 
-    <p style="
-            margin-top:20px;
-            text-align:center;
-            color:#666;
-        ">
-        Show this OTP to our staff before your vehicle wash begins.
+    <p style="margin-top: 12px; font-size: 13px; color: #707A82;">
+        This code is valid for <strong>10 minutes</strong>. Do not share this code with anyone.
     </p>
-
 </div>
 
 <div class="card">
-
-    <h2 style="margin-top:0;">
-        Booking Summary
+    <h2 style="margin-top: 0; font-size: 15px;">
+        🛡️ Security Notice
     </h2>
-
-    <table class="table">
-
-        <tr>
-            <td>Booking Number</td>
-            <td>{{ booking.booking_number }}</td>
-        </tr>
-
-        <tr>
-            <td>Service</td>
-            <td>{{ booking.service.name }}</td>
-        </tr>
-
-        <tr>
-            <td>Vehicle</td>
-            <td>
-                {{ booking.vehicle.brand }}
-                {{ booking.vehicle.model }}
-            </td>
-        </tr>
-
-        <tr>
-            <td>Date</td>
-            <td>{{ booking.slot.date }}</td>
-        </tr>
-
-        <tr>
-            <td>Time</td>
-            <td>
-                {{ booking.slot.start_time }}
-                -
-                {{ booking.slot.end_time }}
-            </td>
-        </tr>
-
-    </table>
-
-</div>
-
-<div style="
-        background:#fff7f2;
-        border-left:5px solid #ff6b22;
-        padding:18px;
-        border-radius:12px;
-        margin-top:25px;
-    ">
-
-    <strong>Important Instructions</strong>
-
-    <ul style="
-            margin-top:12px;
-            padding-left:20px;
-            line-height:1.8;
-            color:#555;
-        ">
-        <li>Keep this OTP confidential.</li>
-        <li>OTP can only be used once.</li>
-        <li>OTP expires after <strong>30 minutes</strong>.</li>
-        <li>OTP verification is required before service begins.</li>
+    <ul style="margin-top: 8px; padding-left: 20px; color: #A7B0B7; font-size: 13px; line-height: 1.7;">
+        <li>Our staff will <strong>never</strong> ask for your registration OTP over the phone.</li>
+        <li>This code can only be used once to activate your account.</li>
+        <li>If you did not request this verification code, please ignore this email.</li>
     </ul>
-
 </div>
 
-<div style="
-        text-align:center;
-        margin-top:35px;
-    ">
-
-    <a href="{{ website_url }}" class="button">
-        View Booking
+<div style="text-align: center; margin-top: 28px;">
+    <a href="{{ website_url }}/verify-otp" class="button">
+        Verify Account
     </a>
-
 </div>
-
-<p style="
-        margin-top:35px;
-        text-align:center;
-    ">
-    If you didn't request this booking, please contact our support team immediately.
-</p>
-
-<p style="
-        text-align:center;
-        font-weight:bold;
-    ">
-    Thank you for choosing <span style="color:#ff6b22;">Washly</span> 🚗
-</p>
 
 {% endblock %}

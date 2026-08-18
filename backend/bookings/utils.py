@@ -118,17 +118,20 @@ def booking_summary(booking):
     Returns booking summary dictionary.
     """
 
+    customer_name = booking.customer.fullname if booking.customer else "Customer"
+    date_val = booking.booking_date or (booking.slot.date if booking.slot else None)
+    time_val = (
+        f"{booking.slot.start_time} - {booking.slot.end_time}"
+        if booking.slot else "Doorstep Service"
+    )
+
     return {
         "booking_number": booking.booking_number,
-        "customer": booking.customer.fullname,
+        "customer": customer_name,
         "vehicle": str(booking.vehicle),
-        "service": booking.service.name,
-        "date": booking.slot.date,
-        "time": (
-            f"{booking.slot.start_time}"
-            f" - "
-            f"{booking.slot.end_time}"
-        ),
+        "service": booking.service.name if booking.service else "Wash Service",
+        "date": str(date_val) if date_val else None,
+        "time": time_val,
         "status": booking.status,
         "payment_status": booking.payment_status,
         "total": format_currency(
