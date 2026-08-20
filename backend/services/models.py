@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.text import slugify
 
 
 class Service(models.Model):
@@ -18,6 +19,12 @@ class Service(models.Model):
         blank=True,
         null=True,
     )
+    image_url = models.URLField(
+        max_length=1000,
+        blank=True,
+        default="",
+        help_text="Cloudinary or external image URL for service",
+    )
 
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
@@ -32,3 +39,14 @@ class Service(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name) or "service"
+            slug = base_slug
+            count = 1
+            while Service.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{count}"
+                count += 1
+            self.slug = slug
+        super().save(*args, **kwargs)

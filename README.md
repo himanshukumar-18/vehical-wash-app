@@ -1,332 +1,204 @@
-# The Black Wash
+# The Black Wash — Doorstep Car Wash Platform
 
-**The Black Wash** is a modern, premium car-wash home-service platform designed for doorstep vehicle detailing. Customers can browse detailing services, specify their doorstep service location using GPS, schedule preferred service dates, complete secure online payments via Razorpay, and track their wash status in real time. The platform features an event-driven notification engine, full admin booking management, and a containerized multi-service architecture.
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js%2016-000000?style=flat&logo=nextdotjs)](https://nextjs.org/)
+[![Django](https://img.shields.io/badge/Backend-Django%205%20%2B%20DRF-092E20?style=flat&logo=django)](https://www.djangoproject.com/)
+[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=flat&logo=postgresql)](https://www.postgresql.org/)
+[![Razorpay](https://img.shields.io/badge/Payment-Razorpay-02042B?style=flat&logo=razorpay)](https://razorpay.com/)
+[![Cloudinary](https://img.shields.io/badge/Media-Cloudinary-3448C5?style=flat&logo=cloudinary)](https://cloudinary.com/)
 
----
-
-## Overview
-
-The Black Wash operates as a mobile van car-wash service where professional detailing teams travel directly to the customer's specified address with high-pressure washing equipment and water supplies. The application provides an intuitive customer booking portal alongside an administrative management panel for service confirmation, staff dispatching, payment settlement, and real-time customer communications.
-
----
-
-## Key Features
-
-- **JWT Authentication & Security**: Email/Password authentication with 6-digit OTP email verification.
-- **Doorstep Service Architecture**: Mobile car wash booking flow with GPS location detection and technician contact mobile collection.
-- **Dynamic Pricing Engine**: Automated base price, GST calculation, coupon discounts, and grand total computation.
-- **Razorpay Payment Gateway**: Online checkout, signature verification, and automated transaction settlement.
-- **Event-Driven Notifications**: Real-time in-app alerts and responsive HTML email dispatching powered by Celery & Redis.
-- **Idempotency & Duplicate Protection**: Database-level event key constraints to prevent duplicate emails or repeat notification triggers.
-- **Admin Management Panel**: Real-time dashboard metrics, booking state transitions (`PENDING` → `CONFIRMED` → `IN_PROGRESS` → `COMPLETED`), customer directory, and financial audit logs.
-- **Cinematic Welcome Experience**: Luxury 5-scene welcome animation with session-based `localStorage` persistence.
-- **Containerized Stack**: Complete Docker Compose setup for PostgreSQL, Redis, Django API, Celery Workers, and Next.js Frontend.
+**The Black Wash** is a full-stack doorstep car washing and detailing application designed for home-service car care in Hazaribagh, Jharkhand, India.
 
 ---
 
-## Customer Features
+## Features
 
-### Authentication & Account Management
-- **User Registration**: Create customer accounts with mandatory full name, email, and password.
-- **OTP Verification**: Secure 6-digit OTP dispatched via HTML email for account activation.
-- **JWT Login & Session**: Secure JWT access & refresh token pair management with blacklist logout support.
+### Customer Features
+- **Doorstep Car Wash Booking**: 6-step responsive booking flow (Vehicle Selection $\rightarrow$ Service Selection $\rightarrow$ Date $\rightarrow$ Doorstep Location Address $\rightarrow$ Order Review $\rightarrow$ Razorpay Payment).
+- **Customer Authentication & Verification**: Email OTP verification, JWT access/refresh token authentication, profile management.
+- **Vehicle Garage**: Register, manage, and toggle default customer vehicles (Hatchback, Sedan, SUV, Luxury).
+- **My Bookings Dashboard**: Real-time status tracking for current and historical doorstep wash orders.
+- **Public Customer Feedback**: Share wash reviews and ratings directly on the site.
 
-### Service Discovery & Vehicle Setup
-- **Service Catalog**: Browse detailing packages (e.g. Testing, Deluxe Wash, Full Detailing) with dynamic pricing fetched from backend REST endpoints.
-- **Vehicle Profiles**: Register customer vehicles with brand, model, and registration number.
-
-### Mobile Doorstep Booking Flow
-- **Vehicle & Package Selection**: Choose registered vehicle and wash package.
-- **Preferred Date Selection**: Select preferred service date without rigid time-slot restrictions.
-- **Doorstep Address & GPS Location**: Enter house/flat address, landmark, PIN code, contact phone number, or click **Use Current Location (GPS)** for automated reverse geocoding.
-- **Review & Checkout**: Instant pricing breakdown including GST (18%) and applied discount.
-
-### Booking Management & Cancellation
-- **My Bookings Dashboard**: View active and historical bookings with status badges (`Pending`, `Confirmed`, `In Progress`, `Completed`, `Cancelled`).
-- **Booking Cancellation**: Customers can cancel `Pending` or `Confirmed` bookings directly from their dashboard with automated backend status updates.
+### Admin / Owner Features
+- **Admin Dashboard**: Real-time business revenue metrics, order counters, and customer growth analytics.
+- **Order Notification Bell**: Topbar real-time order alert bell with Web Audio API chime sound, mute toggle, and order history clearing.
+- **Service Management**: Fully dynamic CRUD for car wash services, pricing, durations, active/inactive toggles, and images.
+- **Testimonial Moderation**: Moderation portal (`/admin/testimonials`) to review, approve (publish to site), or delete customer reviews.
+- **Dynamic Image Management**: Cloudinary-integrated CMS (`/admin/images`) for replacing home hero, banner, about, and why-choose assets without developer intervention.
+- **Payment Ledger**: Audit Razorpay payment orders, transaction signatures, payment statuses, and transaction history.
 
 ---
 
-## Admin Features
+## Technical Stack
 
-- **Admin Dashboard Metrics**: Real-time counters for Total Bookings, Pending Confirmations, Active Wash Requests, Completed Services, and Total Revenue.
-- **Booking State Management**: Single-click action handlers to confirm (`CONFIRMED`) and complete (`COMPLETED`) customer doorstep wash requests.
-- **Direct Staff Calling**: Dedicated **Contact Mobile** column displaying customer phone numbers with clickable `tel:` links for on-the-field technicians.
-- **Customer Directory**: View registered customer profiles with financial integrity preservation.
-- **Payment & Financial Audit**: Track payment statuses (`Pending`, `Paid`, `Failed`, `Refunded`) and transaction identifiers.
-
----
-
-## Payment & Notification System
-
-### Payment Flow Architecture
-
-```text
-Customer Checkout
-       ↓
-Create Razorpay Order (Backend)
-       ↓
-Razorpay Modal (Frontend)
-       ↓
-Backend Signature Verification (`razorpay.Client`)
-       ↓
-Payment Status Updated to PAID (`transaction.atomic`)
-       ↓
-Automated Booking Confirmation & Receipt Email
-```
-
-### Notification Engine Architecture
-
-```text
-Business Event (OTP / Payment / Status Change)
-       ↓
-Notification Service (Database Record with Unique `event_key`)
-       ↓
-Email Service (Celery Worker / Fallback Synchronous Dispatch)
-       ↓
-Customer Inbox & In-App Notification Center
-```
-
-Supported Events:
-1. **OTP Verification**: 6-digit verification code email with 10-minute expiry.
-2. **Registration Welcome**: Instant welcome email upon successful account activation.
-3. **Payment Successful**: Transaction receipt with payment ID, method, and amount.
-4. **Booking Confirmed**: Confirmation email dispatched when admin approves booking.
-5. **Booking Completed**: Completion receipt dispatched when wash service is finished.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
+| Component | Technology |
 | :--- | :--- |
-| **Frontend Framework** | Next.js 16 (App Router, Turbopack) & React 19 |
-| **Language** | TypeScript & JavaScript (ES6+) |
-| **Styling** | Tailwind CSS 4 & CSS Custom Properties |
-| **State Management** | Redux Toolkit & React Context |
-| **Animation & Icons** | Framer Motion & Lucide React |
-| **Backend Framework** | Django 5.x & Django REST Framework (DRF) |
+| **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS, Framer Motion, Redux Toolkit |
+| **Backend** | Python 3.14, Django 5.x, Django REST Framework, Celery |
 | **Database** | PostgreSQL 16 |
-| **Asynchronous Queue** | Celery 5.4 & Redis 7 |
-| **Payment Gateway** | Razorpay Payment Gateway API |
-| **Authentication** | SimpleJWT (JSON Web Tokens) |
-| **Containerization** | Docker & Docker Compose |
+| **Task Queue & Cache** | Redis 7, Celery Beat |
+| **Payments** | Razorpay Payment Gateway (HMAC SHA256 verification) |
+| **Media CDN** | Cloudinary API |
+| **Containerization** | Docker, Docker Compose |
 
 ---
 
-## Project Structure
+## Architecture Overview
 
-```text
+```
+                          ┌────────────────────────┐
+                          │    Next.js Frontend    │
+                          │   (React 19 / Redux)   │
+                          └───────────┬────────────┘
+                                      │ HTTP / REST (JWT)
+                                      ▼
+                          ┌────────────────────────┐
+                          │     Django REST API    │
+                          │ (Gunicorn / Celery)    │
+                          └────┬──────┬──────┬─────┘
+                               │      │      │
+          ┌────────────────────┘      │      └────────────────────┐
+          ▼                           ▼                           ▼
+┌───────────────────┐       ┌───────────────────┐       ┌───────────────────┐
+│ PostgreSQL DB 16  │       │  Razorpay Gateway │       │  Cloudinary CDN   │
+│ (User, Booking)   │       │ (HMAC Signature)  │       │ (Dynamic Images)  │
+└───────────────────┘       └───────────────────┘       └───────────────────┘
+```
+
+---
+
+## Project Directory Structure
+
+```
 vehicle-wash-app/
 ├── backend/
-│   ├── bookings/        # Booking creation, doorstep address, state management
-│   ├── config/          # Django settings, Celery app, URL routing, CORS
-│   ├── notifications/   # In-app notifications, HTML email templates, Celery tasks
-│   ├── payments/        # Razorpay order creation, signature verification, webhooks
-│   ├── services/        # Service packages and pricing models
-│   ├── slots/           # Legacy slot models
-│   ├── users/           # User authentication, OTP verification, profiles
-│   ├── vehicles/        # Customer vehicle management
-│   ├── Dockerfile
-│   └── requirements.txt
+│   ├── config/              # Django settings, URLs, Celery, Exceptions
+│   ├── users/               # Custom User model, Auth, OTP, Profile
+│   ├── services/            # Car Wash Services API
+│   ├── vehicles/            # Customer Vehicles API
+│   ├── bookings/            # Doorstep Wash Booking API & permissions
+│   ├── payments/            # Razorpay Order & Signature Verification API
+│   ├── notifications/       # Bell notifications & Email alerts
+│   ├── imageupdation/       # Cloudinary Dynamic Image CMS
+│   ├── testimonials/        # Customer feedback & Admin moderation
+│   └── manage.py
 ├── frontend/
 │   ├── src/
-│   │   ├── app/         # Next.js App Router pages (Public & Admin routes)
-│   │   ├── components/  # Booking wizard, UI controls, intro animation, layouts
-│   │   ├── context/     # BookingProvider context
-│   │   ├── lib/         # Axios instance, Redux slices, API modules
-│   ├── Dockerfile
+│   │   ├── app/             # App Router pages ((public), admin, login, etc.)
+│   │   ├── components/      # UI components (booking, admin, sections)
+│   │   ├── lib/             # API clients, Redux store & slices
+│   │   ├── context/         # Booking context provider
+│   │   └── config/          # Site SEO config
 │   └── package.json
-└── docker-compose.yml
+├── docs/                    # Technical documentation suite
+├── docker-compose.yml       # Production multi-container orchestration
+└── .env.example             # Environment template
 ```
 
 ---
 
-## Installation
+## Local Development Setup
 
 ### Prerequisites
-- Python 3.12+
-- Node.js 20+
-- PostgreSQL 16+
-- Redis (optional for local non-docker testing)
+- Python 3.10+
+- Node.js 18+
+- PostgreSQL 14+ or Docker
 
-### Backend Setup (Manual)
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Run migrations and start development server:
-   ```bash
-   python manage.py migrate
-   python manage.py runserver
-   ```
+### 1. Backend Setup
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 
-### Frontend Setup (Manual)
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
+# Run migrations
+python manage.py migrate
+
+# Create Superuser
+python manage.py createsuperuser
+
+# Start Django Server
+python manage.py runserver 0.0.0.0:8000
+```
+
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+
+# Start Next.js Development Server
+npm run dev
+```
+
+Visit `http://localhost:3000` in your browser.
 
 ---
 
-## Environment Variables
+## Docker Production Deployment
 
-### Backend (`backend/.env`)
-
-```env
-SECRET_KEY=your-django-secret-key
-DB_NAME=washdb
-DB_USER=washuser
-DB_PASSWORD=washpass
-DB_HOST=db
-DB_PORT=5432
-
-CORS_ALLOWED_ORIGINS=http://localhost:3000
-
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your-email@gmail.com
-EMAIL_HOST_PASSWORD=your-google-app-password
-
-CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/0
-
-RAZORPAY_KEY_ID=rzp_test_xxxxxxxxx
-RAZORPAY_KEY_SECRET=xxxxxxxxx
-```
-
-### Frontend (`frontend/.env.local`)
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/
-NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxx
-```
-
----
-
-## Running the Application
-
-The recommended production and development method is using **Docker Compose**:
+To launch the complete application stack in production containers:
 
 ```bash
-docker compose up --build
+# 1. Copy environment template
+cp .env.example .env
+
+# 2. Start all services
+docker compose up -d --build
+
+# 3. Check running containers
+docker compose ps
 ```
 
-Once running, access:
-- **Frontend Portal**: `http://localhost:3000`
-- **Admin Dashboard**: `http://localhost:3000/admin`
-- **Backend REST API**: `http://localhost:8000/api/`
+The stack runs:
+- `wash_frontend` at `http://localhost:3000`
+- `wash_backend` at `http://localhost:8000`
+- `wash_db` (PostgreSQL 16)
+- `wash_redis` (Redis)
+- `wash_celery_worker`
 
 ---
 
-## API Overview
+## Verification & Testing Commands
 
-| Module | Base Path | Purpose |
-| :--- | :--- | :--- |
-| **Auth & Users** | `/api/users/` | Registration, OTP verification, JWT login, profile |
-| **Services** | `/api/services/` | Browse wash packages & prices |
-| **Vehicles** | `/api/vehicles/` | Customer vehicle CRUD operations |
-| **Bookings** | `/api/bookings/` | Create doorstep booking, price calculation, status tracking, cancel |
-| **Admin Bookings**| `/api/admin/bookings/` | Dashboard metrics, status confirmation & completion |
-| **Payments** | `/api/payments/` | Razorpay order creation, payment verification, cash settlement |
-| **Notifications** | `/api/notifications/` | Customer in-app notifications, mark read, unread count |
-
----
-
-## Customer Flow
-
-```text
-User Registration
-       ↓
-OTP Email Verification
-       ↓
-Select Vehicle & Service Package
-       ↓
-Select Preferred Date & Enter Service Address (or use GPS)
-       ↓
-Review Price Breakdown (Base + GST)
-       ↓
-Razorpay Online Checkout
-       ↓
-Payment Signature Verification
-       ↓
-Receive Order Confirmation Email
-       ↓
-Track Booking Status on Dashboard
+### Backend Automated Test Suite
+```bash
+cd backend
+USE_SQLITE=True ./venv/bin/python manage.py test
 ```
 
----
+### Django System Check
+```bash
+cd backend
+./venv/bin/python manage.py check
+```
 
-## Admin Flow
+### Frontend TypeScript Verification
+```bash
+cd frontend
+npx tsc --noEmit
+```
 
-```text
-Admin Login (/admin)
-       ↓
-View Dashboard Metrics & Wash Requests
-       ↓
-Review Customer Address & Contact Phone Number
-       ↓
-Click [ Confirm ] to Approve Booking
-       ↓
-Technician Dispatched to Customer Address
-       ↓
-Click [ Complete ] Upon Service Completion
-       ↓
-Automated Customer Email & In-App Notification Sent
+### Frontend Production Build Test
+```bash
+cd frontend
+npm run build
 ```
 
 ---
 
-## Docker
+## Documentation Suite
 
-The application includes multi-container orchestration configured in `docker-compose.yml`:
+Detailed technical guides are available in the [`docs/`](file:///Users/himanshukumar/Developer/django-projects/vehicle-wash-app/docs) directory:
 
-- `wash_db`: PostgreSQL 16 database.
-- `wash_redis`: Redis 7 in-memory broker.
-- `wash_backend`: Django REST Framework API server.
-- `wash_celery_worker`: Celery task worker for background email dispatches.
-- `wash_celery_beat`: Celery beat scheduler.
-- `wash_frontend`: Next.js production web server.
-
----
-
-## Security
-
-- **JWT Authentication**: Short-lived access tokens with secure refresh token rotation.
-- **Backend Payment Verification**: Cryptographic HMAC-SHA256 signature verification for all Razorpay transactions.
-- **Idempotent Webhooks**: Payment event deduplication protecting against replay attacks.
-- **IDOR Protection**: Endpoint authorization ensuring users can only access their own vehicles, bookings, and notifications.
-- **Environment Isolation**: Secrets and API keys injected via environment variables.
+- [ARCHITECTURE.md](file:///Users/himanshukumar/Developer/django-projects/vehicle-wash-app/docs/ARCHITECTURE.md): Full system architecture & exception handling specifications.
+- [API.md](file:///Users/himanshukumar/Developer/django-projects/vehicle-wash-app/docs/API.md): Comprehensive REST API endpoint contract.
+- [DEPLOYMENT.md](file:///Users/himanshukumar/Developer/django-projects/vehicle-wash-app/docs/DEPLOYMENT.md): Production Docker Compose & server setup.
+- [SECURITY.md](file:///Users/himanshukumar/Developer/django-projects/vehicle-wash-app/docs/SECURITY.md): RBAC matrix, JWT lifecycle, & payment security.
+- [PAYMENT.md](file:///Users/himanshukumar/Developer/django-projects/vehicle-wash-app/docs/PAYMENT.md): Razorpay order creation, signature verification, & financial integrity.
+- [TESTING.md](file:///Users/himanshukumar/Developer/django-projects/vehicle-wash-app/docs/TESTING.md): Testing strategy and E2E validation scenarios.
 
 ---
 
-## Future Improvements
+## License
 
-- Live GPS tracking of washing van technician arrival.
-- Customer rating and review submission post service completion.
-- Automated SMS notifications via Twilio / Fast2SMS.
-
----
-
-## Author
-
-**The Black Wash Engineering Team**  
-*Premium Vehicle Care & Mobile Detailing Services.*
+Copyright © 2026 **The Black Wash**. All rights reserved.

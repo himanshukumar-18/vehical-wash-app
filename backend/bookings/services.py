@@ -114,11 +114,18 @@ class BookingService:
 
     @staticmethod
     @transaction.atomic
-    def complete_booking(booking):
+    def complete_booking(booking, otp=None):
         """
         Complete booking.
+        Verifies customer arrival OTP if provided.
         Auto-settles cash payment if unpaid upon completion.
         """
+        if not booking.otp_verified:
+            if otp and str(booking.arrival_otp).strip() != str(otp).strip():
+                raise ValidationError("Invalid Arrival OTP code. Please enter the correct OTP provided by the customer.")
+            booking.otp_verified = True
+            booking.otp_verified_at = timezone.now()
+
         if booking.payment_status != Booking.PaymentStatus.PAID:
             from payments.services import PaymentService
             PaymentService.mark_cash_paid(booking=booking, actor=None)
@@ -126,7 +133,7 @@ class BookingService:
 
         booking.status = Booking.Status.COMPLETED
         booking.completed_at = timezone.now()
-        booking.save(update_fields=["status", "completed_at", "updated_at"])
+        booking.save(update_fields=["status", "completed_at", "otp_verified", "otp_verified_at", "updated_at"])
 
         transaction.on_commit(lambda b=booking: EmailService.enqueue_booking_completed(b))
         transaction.on_commit(lambda b=booking: NotificationService.notify_booking_completed(b))

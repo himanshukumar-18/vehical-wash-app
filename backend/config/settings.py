@@ -54,7 +54,9 @@ INSTALLED_APPS = [
     'payments.apps.PaymentsConfig',
     'vehicles',
     'slots',
-    'notifications.apps.NotificationsConfig'
+    'notifications.apps.NotificationsConfig',
+    'imageupdation.apps.ImageupdationConfig',
+    'testimonials',
 ]
 
 MIDDLEWARE = [
@@ -214,6 +216,11 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Razorpay settings
 RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='')
 RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
+
+# Cloudinary Configuration
+CLOUDINARY_CLOUD_NAME = config('CLOUDINARY_CLOUD_NAME', default='')
+CLOUDINARY_API_KEY = config('CLOUDINARY_API_KEY', default='')
+CLOUDINARY_API_SECRET = config('CLOUDINARY_API_SECRET', default='')
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

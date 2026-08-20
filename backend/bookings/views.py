@@ -290,7 +290,7 @@ class AdminBookingViewSet(GenericViewSet):
     def complete(self, request, pk=None):
         """
         Admin marks a booking as completed (wash done).
-        Payment must be paid before completing.
+        Requires verifying customer arrival OTP.
         """
         booking = self._get_booking(pk)
         if booking is None:
@@ -301,12 +301,44 @@ class AdminBookingViewSet(GenericViewSet):
 
         if not booking.can_complete:
             return Response(
-                {"detail": "Only in-progress bookings can be completed."},
+                {"detail": "Only confirmed or in-progress bookings can be completed."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        booking = BookingService.complete_booking(booking)
+        otp = request.data.get("otp")
+        if not booking.otp_verified and not otp:
+            return Response(
+                {"detail": "Customer Arrival OTP is required to complete this booking."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        booking = BookingService.complete_booking(booking, otp=otp)
         return Response(BookingDetailSerializer(booking).data)
+
+    # ------------------------------------------------------------------
+    # POST /api/admin/bookings/{id}/resend-otp/
+    # ------------------------------------------------------------------
+
+    @action(detail=True, methods=["post"], url_path="resend-otp")
+    def resend_otp(self, request, pk=None):
+        """
+        Admin resends customer arrival OTP.
+        """
+        booking = self._get_booking(pk)
+        if booking is None:
+            return Response(
+                {"detail": "Booking not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        BookingService.resend_otp(booking)
+        return Response(
+            {
+                "success": True,
+                "message": f"Arrival OTP resent successfully to customer for booking #{booking.booking_number}.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
     # ------------------------------------------------------------------
     # POST /api/admin/bookings/{id}/cancel/

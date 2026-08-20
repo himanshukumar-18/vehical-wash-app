@@ -43,6 +43,16 @@ class NotificationViewSet(
         ).update(is_read=True, read_at=timezone.now())
         return Response({"success": True, "message": f"{updated_count} notifications marked as read."}, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["post", "delete"], url_path="clear-all")
+    def clear_all(self, request):
+        updated_count = Notification.objects.filter(
+            recipient=request.user, archived_at__isnull=True
+        ).update(archived_at=timezone.now(), is_read=True, read_at=timezone.now())
+        return Response(
+            {"success": True, "message": f"{updated_count} notifications cleared."},
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=["post"])
     def archive(self, request, pk=None):
         notification = self.get_object()
