@@ -1,10 +1,11 @@
 from django.db.models import Count, Q, Sum
-from rest_framework import status
+from rest_framework import permissions, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
+from services.models import Service
 from .models import Booking
 from .serializers import (
     BookingCreateSerializer,
@@ -109,13 +110,52 @@ class BookingViewSet(GenericViewSet):
             address=data["address"],
             slot=data.get("slot"),
             customer_note=data.get("customer_note", ""),
-            discount_percentage=data.get("discount_percentage", 0),
         )
 
         return Response(
             BookingDetailSerializer(booking).data,
             status=status.HTTP_201_CREATED,
         )
+
+    # ------------------------------------------------------------------
+    # POST /api/bookings/price-preview/
+    # ------------------------------------------------------------------
+
+    @action(detail=False, methods=["post"], url_path="price-preview", permission_classes=[permissions.AllowAny])
+    def price_preview(self, request):
+        """
+        Calculate and preview booking pricing, travel charge, and automatic best offer discount.
+        No promo code required.
+        """
+        service_id = request.data.get("service") or request.data.get("service_id")
+        address = request.data.get("address", "")
+        booking_date = request.data.get("booking_date")
+
+        if not service_id:
+            return Response(
+                {"success": False, "message": "Service selection is required.", "code": "VALIDATION_ERROR"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            service = Service.objects.get(pk=service_id, is_active=True)
+        except Service.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Invalid or inactive service selected.", "code": "RESOURCE_NOT_FOUND"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        customer = request.user if request.user and request.user.is_authenticated else None
+        from .pricing_service import BookingPricingService
+
+        pricing = BookingPricingService.calculate(
+            service=service,
+            address=address,
+            customer=customer,
+            booking_date=booking_date,
+        )
+
+        return Response(pricing.to_dict(), status=status.HTTP_200_OK)
 
     # ------------------------------------------------------------------
     # POST /api/bookings/{id}/cancel/

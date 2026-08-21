@@ -79,6 +79,20 @@ class Booking(models.Model):
         validators=[MinValueValidator(Decimal("0.00"))],
     )
 
+    travel_charge = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+
+    subtotal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+
     tax = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -94,6 +108,32 @@ class Booking(models.Model):
     total_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+    )
+
+    offer = models.ForeignKey(
+        "offers.Offer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bookings",
+    )
+
+    offer_name_snapshot = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    service_area = models.ForeignKey(
+        "service_areas.ServiceArea",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bookings",
+    )
+
+    service_area_name_snapshot = models.CharField(
+        max_length=200,
+        blank=True,
     )
 
     status = models.CharField(

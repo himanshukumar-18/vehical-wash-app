@@ -57,6 +57,9 @@ INSTALLED_APPS = [
     'notifications.apps.NotificationsConfig',
     'imageupdation.apps.ImageupdationConfig',
     'testimonials',
+    'service_areas',
+    'offers',
+    'analytics',
 ]
 
 MIDDLEWARE = [

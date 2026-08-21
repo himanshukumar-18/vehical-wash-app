@@ -45,10 +45,18 @@ class BookingService:
         """
         validate_booking_available(customer, vehicle, service, booking_date=booking_date, slot=slot)
 
-        base_price = service.price
-        tax = calculate_tax(base_price)
-        discount = calculate_discount(base_price, discount_percentage)
-        total = calculate_total(base_price, tax, discount)
+        from .pricing_service import BookingPricingService
+        from offers.models import OfferUsage
+
+        pricing = BookingPricingService.calculate(
+            service=service,
+            address=address,
+            customer=customer,
+            booking_date=booking_date,
+        )
+
+        if not pricing.is_service_area_supported:
+            raise ValidationError(pricing.service_area_message)
 
         booking = Booking.objects.create(
             booking_number=generate_booking_number(),
@@ -59,12 +67,28 @@ class BookingService:
             slot=slot,
             address=address,
             customer_note=customer_note,
-            base_price=base_price,
-            tax=tax,
-            discount=discount,
-            total_price=total,
+            base_price=pricing.service_price,
+            travel_charge=pricing.travel_charge,
+            subtotal=pricing.subtotal,
+            tax=pricing.tax,
+            discount=pricing.discount,
+            total_price=pricing.final_amount,
+            offer=pricing.offer,
+            offer_name_snapshot=pricing.offer_name,
+            service_area=pricing.service_area,
+            service_area_name_snapshot=pricing.service_area_name,
+            status=Booking.Status.PENDING,
+            payment_status=Booking.PaymentStatus.PENDING,
             arrival_otp=generate_arrival_otp(),
         )
+
+        if pricing.offer and customer and customer.is_authenticated:
+            OfferUsage.objects.create(
+                offer=pricing.offer,
+                user=customer,
+                booking=booking,
+                discount_amount=pricing.discount,
+            )
 
         if slot:
             slot.booked_count += 1

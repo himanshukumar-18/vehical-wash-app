@@ -63,17 +63,21 @@
 
     <table class="table">
         <tr>
-            <td>Base Price</td>
+            <td>Service Base Price</td>
             <td>₹ {{ booking.base_price }}</td>
+        </tr>
+        <tr>
+            <td>Doorstep Travel Fee</td>
+            <td>₹ {{ booking.travel_charge|default:"0.00" }}</td>
         </tr>
         {% if booking.discount > 0 %}
         <tr>
-            <td>Discount</td>
+            <td>Offer Discount{% if booking.offer_name_snapshot %} ({{ booking.offer_name_snapshot }}){% endif %}</td>
             <td>− ₹ {{ booking.discount }}</td>
         </tr>
         {% endif %}
         <tr>
-            <td>Tax (GST)</td>
+            <td>Tax (GST 18%)</td>
             <td>₹ {{ booking.tax }}</td>
         </tr>
         <tr>

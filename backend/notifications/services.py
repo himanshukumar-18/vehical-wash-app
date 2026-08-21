@@ -103,10 +103,18 @@ class NotificationService:
     @classmethod
     def notify_booking_created(cls, booking):
         event_key = f"booking_created_{booking.id}"
+        pricing_str = f"Base: ₹{booking.base_price}"
+        if getattr(booking, "travel_charge", 0) and float(booking.travel_charge) > 0:
+            pricing_str += f", Travel Fee: ₹{booking.travel_charge}"
+        if getattr(booking, "discount", 0) and float(booking.discount) > 0:
+            offer_label = f" ({booking.offer_name_snapshot})" if getattr(booking, "offer_name_snapshot", "") else ""
+            pricing_str += f", Offer Discount{offer_label}: -₹{booking.discount}"
+        pricing_str += f", Total: ₹{booking.total_price}"
+
         return cls.create_notification(
             recipient=booking.customer,
             title="Booking Created",
-            body=f"Your car wash booking #{booking.booking_number} for {booking.service.name} has been created successfully.",
+            body=f"Your car wash booking #{booking.booking_number} for {booking.service.name} has been created. [{pricing_str}]",
             category=Notification.Category.BOOKING,
             priority=Notification.Priority.NORMAL,
             action_url=f"/bookings/{booking.booking_number}",
@@ -117,10 +125,18 @@ class NotificationService:
     def notify_booking_confirmed(cls, booking):
         event_key = f"booking_confirmed_{booking.id}"
         service_date = booking.booking_date or (booking.slot.date if booking.slot else "Scheduled Date")
+        pricing_str = f"Base: ₹{booking.base_price}"
+        if getattr(booking, "travel_charge", 0) and float(booking.travel_charge) > 0:
+            pricing_str += f", Travel Fee: ₹{booking.travel_charge}"
+        if getattr(booking, "discount", 0) and float(booking.discount) > 0:
+            offer_label = f" ({booking.offer_name_snapshot})" if getattr(booking, "offer_name_snapshot", "") else ""
+            pricing_str += f", Offer Discount{offer_label}: -₹{booking.discount}"
+        pricing_str += f", Total Amount: ₹{booking.total_price}"
+
         return cls.create_notification(
             recipient=booking.customer,
             title="Booking Confirmed",
-            body=f"Your car wash booking #{booking.booking_number} has been confirmed. Service Date: {service_date}.",
+            body=f"Your car wash booking #{booking.booking_number} has been confirmed for {service_date}. [{pricing_str}]",
             category=Notification.Category.BOOKING,
             priority=Notification.Priority.HIGH,
             action_url=f"/bookings/{booking.booking_number}",
@@ -133,7 +149,7 @@ class NotificationService:
         return cls.create_notification(
             recipient=booking.customer,
             title="Booking Cancelled",
-            body=f"Your car wash booking #{booking.booking_number} has been cancelled successfully.",
+            body=f"Your car wash booking #{booking.booking_number} for {booking.service.name} (Amount: ₹{booking.total_price}) has been cancelled successfully.",
             category=Notification.Category.BOOKING,
             priority=Notification.Priority.HIGH,
             action_url=f"/bookings/{booking.booking_number}",
@@ -149,7 +165,7 @@ class NotificationService:
         return cls.create_notification(
             recipient=booking.customer,
             title="Booking Rescheduled",
-            body=f"Your booking #{booking.booking_number} has been rescheduled to {date_str}{time_str}.",
+            body=f"Your booking #{booking.booking_number} has been rescheduled to {date_str}{time_str}. Total: ₹{booking.total_price}.",
             category=Notification.Category.BOOKING,
             priority=Notification.Priority.NORMAL,
             action_url=f"/bookings/{booking.booking_number}",
@@ -159,10 +175,18 @@ class NotificationService:
     @classmethod
     def notify_booking_completed(cls, booking):
         event_key = f"booking_completed_{booking.id}"
+        pricing_str = f"Base: ₹{booking.base_price}"
+        if getattr(booking, "travel_charge", 0) and float(booking.travel_charge) > 0:
+            pricing_str += f", Travel Fee: ₹{booking.travel_charge}"
+        if getattr(booking, "discount", 0) and float(booking.discount) > 0:
+            offer_label = f" ({booking.offer_name_snapshot})" if getattr(booking, "offer_name_snapshot", "") else ""
+            pricing_str += f", Offer Discount{offer_label}: -₹{booking.discount}"
+        pricing_str += f", Total Paid: ₹{booking.total_price}"
+
         return cls.create_notification(
             recipient=booking.customer,
             title="Service Completed",
-            body=f"Your car wash service for booking #{booking.booking_number} has been completed.",
+            body=f"Your car wash service for booking #{booking.booking_number} has been completed. [{pricing_str}]",
             category=Notification.Category.BOOKING,
             priority=Notification.Priority.NORMAL,
             action_url=f"/bookings/{booking.booking_number}",

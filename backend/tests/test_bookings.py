@@ -73,7 +73,7 @@ class BookingTests(TestCase):
         )
         self.assertEqual(booking.base_price, Decimal("1.00"))
         self.assertEqual(booking.tax, Decimal("0.18"))
-        self.assertEqual(booking.total_price, Decimal("1.18"))
+        self.assertEqual(booking.total_price, Decimal("51.18"))
 
     def test_client_pricing_tampering_ignored(self):
         response = self.client.post("/api/bookings/", {
@@ -88,7 +88,7 @@ class BookingTests(TestCase):
         booking = Booking.objects.get(pk=response.data["id"])
         self.assertEqual(booking.base_price, Decimal("1.00"))
         self.assertEqual(booking.tax, Decimal("0.18"))
-        self.assertEqual(booking.total_price, Decimal("1.18"))
+        self.assertEqual(booking.total_price, Decimal("51.18"))
 
     def test_idor_protection_customer_cannot_access_other_booking(self):
         booking = BookingService.create_booking(
