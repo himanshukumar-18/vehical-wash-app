@@ -371,11 +371,12 @@ class AdminBookingViewSet(GenericViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        BookingService.resend_otp(booking)
+        booking = BookingService.resend_otp(booking)
         return Response(
             {
                 "success": True,
-                "message": f"Arrival OTP resent successfully to customer for booking #{booking.booking_number}.",
+                "message": f"Arrival OTP generated and sent to customer for booking #{booking.booking_number}.",
+                "arrival_otp": booking.arrival_otp,
             },
             status=status.HTTP_200_OK,
         )

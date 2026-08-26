@@ -35,27 +35,12 @@ def generate_arrival_otp(length=4):
 
 def calculate_tax(
     base_price,
-    tax_percentage=Decimal("18.00"),
+    tax_percentage=Decimal("0.00"),
 ):
     """
-    GST Calculation.
-
-    Example:
-    Base Price = 100
-    GST = 18%
-    Returns 18
+    Tax/GST set to 0.00 (No GST charge).
     """
-
-    tax = (
-        Decimal(base_price)
-        * Decimal(tax_percentage)
-        / Decimal("100")
-    )
-
-    return tax.quantize(
-        Decimal("0.01"),
-        rounding=ROUND_HALF_UP,
-    )
+    return Decimal("0.00")
 
 
 def calculate_discount(

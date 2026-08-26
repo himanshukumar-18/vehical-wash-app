@@ -171,12 +171,10 @@ class BookingPricingService:
                     best_discount = disc_amount
                     best_offer = offer
 
-        from .utils import calculate_tax
-
-        # Round discount and calculate final total safely
+        # Round discount and calculate final total safely (No GST tax charge)
         best_discount = min(best_discount, subtotal).quantize(Decimal("0.01"))
-        tax = calculate_tax(service_price)
-        final_amount = (subtotal - best_discount + tax).quantize(Decimal("0.01"))
+        tax = Decimal("0.00")
+        final_amount = (subtotal - best_discount).quantize(Decimal("0.01"))
 
         return PricingResult(
             service_price=service_price.quantize(Decimal("0.01")),

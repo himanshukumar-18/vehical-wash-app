@@ -7,6 +7,7 @@ from vehicles.models import Vehicle
 
 
 class BookingListSerializer(serializers.ModelSerializer):
+    customer = serializers.SerializerMethodField()
     service = serializers.StringRelatedField()
     vehicle = serializers.StringRelatedField()
     booking_date = serializers.SerializerMethodField()
@@ -26,8 +27,20 @@ class BookingListSerializer(serializers.ModelSerializer):
             "status",
             "payment_status",
             "total_price",
+            "arrival_otp",
             "created_at",
         )
+
+    def get_customer(self, obj):
+        if not obj.customer:
+            return None
+        fullname = getattr(obj.customer, "fullname", None) or obj.customer.get_full_name() or obj.customer.username or "Customer"
+        return {
+            "id": obj.customer.id,
+            "fullname": fullname,
+            "email": getattr(obj.customer, "email", "") or "",
+            "phone_number": getattr(obj.customer, "phone_number", "") or "",
+        }
 
     def get_booking_date(self, obj):
         if obj.booking_date:
@@ -48,7 +61,7 @@ class BookingListSerializer(serializers.ModelSerializer):
 
 
 class BookingDetailSerializer(serializers.ModelSerializer):
-    customer = serializers.StringRelatedField()
+    customer = serializers.SerializerMethodField()
     service = serializers.StringRelatedField()
     vehicle = serializers.StringRelatedField()
     booking_date = serializers.SerializerMethodField()
@@ -56,6 +69,17 @@ class BookingDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = "__all__"
+
+    def get_customer(self, obj):
+        if not obj.customer:
+            return None
+        fullname = getattr(obj.customer, "fullname", None) or obj.customer.get_full_name() or obj.customer.username or "Customer"
+        return {
+            "id": obj.customer.id,
+            "fullname": fullname,
+            "email": getattr(obj.customer, "email", "") or "",
+            "phone_number": getattr(obj.customer, "phone_number", "") or "",
+        }
 
     def get_booking_date(self, obj):
         if obj.booking_date:
