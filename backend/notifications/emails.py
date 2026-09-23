@@ -20,8 +20,10 @@ class EmailService:
         recipient_list,
     ):
         """
-        Send HTML email with fallback exception handling.
+        Send HTML email with detailed exception logging.
+        fail_silently=False so the real SMTP error is visible in Celery task logs.
         """
+        import smtplib
         try:
             from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@theblackwash.com')
             html_content = render_to_string(
@@ -41,9 +43,26 @@ class EmailService:
                 "text/html",
             )
 
-            sent = email.send(fail_silently=True)
+            # fail_silently=False → surfaces the real SMTP error in Celery logs
+            sent = email.send(fail_silently=False)
             logger.info("Dispatched HTML email '%s' to %s (sent=%s)", subject, recipient_list, sent)
             return sent
+
+        except smtplib.SMTPAuthenticationError as exc:
+            logger.error(
+                "SMTP Authentication Error sending '%s' to %s. "
+                "Check EMAIL_HOST_USER and EMAIL_HOST_PASSWORD in .env "
+                "(Gmail: use a 16-char App Password, NOT your account password). Error: %s",
+                subject, recipient_list, exc,
+            )
+            return 0
+        except smtplib.SMTPServerDisconnected as exc:
+            logger.error(
+                "SMTP Server disconnected sending '%s' to %s. "
+                "Possible causes: wrong port, TLS/SSL mismatch, or network issue. Error: %s",
+                subject, recipient_list, exc,
+            )
+            return 0
         except Exception as exc:
             logger.error("Failed to send HTML email '%s' to %s: %s", subject, recipient_list, exc)
             return 0

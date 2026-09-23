@@ -63,21 +63,5 @@ services:
       - db
       - redis
 
-  frontend:
-    build: ./frontend
-    container_name: wash_frontend
-    restart: unless-stopped
-    command: npm run dev
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    ports:
-      - "3000:3000"
-    env_file:
-      - ./frontend/.env.local
-    depends_on:
-      - backend
-
 volumes:
   postgres_data:

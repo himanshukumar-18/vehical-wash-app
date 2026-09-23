@@ -203,18 +203,45 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
-# Allow Next.js frontend (running on port 3000) to call this API during development
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000').split(',')
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# In DEBUG mode allow all origins so Expo web (localhost:8081), simulators, and
+# local API clients all work without friction.
+# In production, explicitly list allowed origins via CORS_ALLOWED_ORIGINS in .env.
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:8081,http://127.0.0.1:8081',
+    ).split(',')
+
 CORS_ALLOW_CREDENTIALS = True
+
+# Required for preflight (OPTIONS) requests — allow common request headers
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 # Email settings (used to send booking confirmation emails)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = True
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
+EMAIL_TIMEOUT = 15  # seconds — prevent indefinite hang on connection failure
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+# Strip spaces — Gmail App Passwords are often copied with spaces between groups
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='').replace(' ', '').strip()
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
 
 # Razorpay settings
 RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='')
