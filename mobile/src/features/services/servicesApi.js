@@ -29,16 +29,8 @@ export const servicesApi = baseApi.injectEndpoints({
         ];
       },
     }),
-
-    /**
-     * GET /api/services/{slug}/
-     */
-    getServiceBySlug: builder.query({
-      query: (slug) => `services/${slug}/`,
-      providesTags: (result, error, slug) => [{ type: 'Services', id: slug }],
-    }),
   }),
   overrideExisting: true,
 });
 
-export const { useGetServicesQuery, useGetServiceBySlugQuery } = servicesApi;
+export const { useGetServicesQuery } = servicesApi;

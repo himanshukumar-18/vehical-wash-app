@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, CalendarCheck, User } from 'lucide-react-native';
+import { Home, User } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -24,11 +24,6 @@ const TABS_CONFIG = [
     name: 'index',
     label: 'Home',
     icon: Home,
-  },
-  {
-    name: 'bookings',
-    label: 'Bookings',
-    icon: CalendarCheck,
   },
   {
     name: 'me',
@@ -142,7 +137,6 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="bookings" options={{ title: 'My Bookings' }} />
       <Tabs.Screen name="me" options={{ title: 'Me' }} />
     </Tabs>
   );

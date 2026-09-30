@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,17 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,14 +34,17 @@ import {
   Mail,
   ShieldCheck,
   Edit3,
-  Calendar,
+  Droplets,
+  Sparkles,
+  Shield,
+  FileText,
+  UserX,
   ChevronRight,
 } from 'lucide-react-native';
 
 import { Colors, Spacing, Radius } from '@/theme';
 import {
   AppText,
-  AppButton,
   AppCard,
   AppDivider,
 } from '@/components';
@@ -40,19 +53,38 @@ import {
   useDeleteVehicleMutation,
   useUpdateVehicleMutation,
 } from '@/features/vehicles/vehiclesApi';
+import { useGetBookingsQuery } from '@/features/bookings/bookingsApi';
 import { useGetProfileQuery, useLogoutMutation } from '@/features/auth/authApi';
 import { useAppSelector } from '@/hooks/useAppSelector';
 import { selectCurrentUser, clearCredentials } from '@/features/auth/authSlice';
 import { clearTokens, getRefreshToken } from '@/services/storage/secureStorage';
 import { directCall, openWhatsApp, BUSINESS_CONTACT } from '@/constants/contact';
+import { openLegalUrl, LEGAL_URLS } from '@/constants/legal';
+import { getUserInitials } from '@/utils';
 import AddVehicleModal from '@/features/vehicles/components/AddVehicleModal';
 import EditProfileModal from '@/features/profile/components/EditProfileModal';
 
+/**
+ * MeScreen (Account Hub)
+ *
+ * Premium automotive-inspired customer profile experience for The Black Wash.
+ *
+ * Features:
+ * - Rounded luxury header with subtle watermark and glowing avatar
+ * - Real account statistics (Bookings, Completed Washes, Garage Vehicles)
+ * - Garage management with 1-tap add/delete/set-default vehicles
+ * - Quick shortcuts to Doorstep Bookings and WhatsApp Support
+ * - Contextual Doorstep Service Hub details
+ * - Destructive Sign Out action with secure session clearance
+ * - 100% responsive layout with dock clearance
+ */
 export default function MeScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
+  const { width } = useWindowDimensions();
 
+  // Queries
   const {
     data: profileData,
     refetch: refetchProfile,
@@ -65,19 +97,60 @@ export default function MeScreen() {
     isFetching: isVehiclesFetching,
   } = useGetVehiclesQuery(undefined, { skip: !currentUser });
 
+  const {
+    data: bookings,
+    refetch: refetchBookings,
+    isFetching: isBookingsFetching,
+  } = useGetBookingsQuery(undefined, { skip: !currentUser });
+
+  // Mutations
   const [deleteVehicle] = useDeleteVehicleMutation();
   const [updateVehicle] = useUpdateVehicleMutation();
   const [logoutMutation, { isLoading: isLoggingOut }] = useLogoutMutation();
 
+  // Modals
   const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
+  // Animation values
+  const headerOpacity = useSharedValue(0);
+  const headerTranslateY = useSharedValue(-12);
+  const avatarScale = useSharedValue(0.85);
+  const statsOpacity = useSharedValue(0);
+  const statsScale = useSharedValue(0.92);
+  const contentOpacity = useSharedValue(0);
+  const contentTranslateY = useSharedValue(16);
+
+  useEffect(() => {
+    // 1. Header entrance
+    headerOpacity.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
+    headerTranslateY.value = withTiming(0, { duration: 450, easing: Easing.out(Easing.cubic) });
+
+    // 2. Avatar scale
+    avatarScale.value = withDelay(150, withSpring(1, { damping: 12, stiffness: 240 }));
+
+    // 3. Stats card entrance
+    statsOpacity.value = withDelay(250, withTiming(1, { duration: 450 }));
+    statsScale.value = withDelay(250, withSpring(1, { damping: 14, stiffness: 220 }));
+
+    // 4. Content sections entrance
+    contentOpacity.value = withDelay(350, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    contentTranslateY.value = withDelay(350, withSpring(0, { damping: 14, stiffness: 180 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const user = profileData || currentUser;
+
+  // Real statistics derived from backend queries
+  const totalBookingsCount = bookings?.length || 0;
+  const completedBookingsCount = bookings?.filter((b) => b.status === 'completed')?.length || 0;
+  const vehiclesCount = vehicles?.length || 0;
 
   const onRefresh = () => {
     if (currentUser) {
       refetchProfile();
       refetchVehicles();
+      refetchBookings();
     }
   };
 
@@ -125,7 +198,7 @@ export default function MeScreen() {
             try {
               const refreshToken = await getRefreshToken();
               if (refreshToken) {
-                await logoutMutation({ refresh: refreshToken }).unwrap().catch(() => {});
+                await logoutMutation({ refresh: refreshToken }).unwrap().catch(() => { });
               }
             } catch {
               // Proceed with local logout regardless
@@ -140,290 +213,448 @@ export default function MeScreen() {
     );
   };
 
-  const initials = user?.fullname
-    ? user.fullname
-        .split(' ')
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
-    : 'BW';
+  const initials = getUserInitials(user);
+
+  // Animated styles
+  const animatedHeaderStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+
+  const animatedAvatarStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: avatarScale.value }],
+  }));
+
+  const animatedStatsStyle = useAnimatedStyle(() => ({
+    opacity: statsOpacity.value,
+    transform: [{ scale: statsScale.value }],
+  }));
+
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateY: contentTranslateY.value }],
+  }));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="light" />
 
-      {/* Futuristic Account Header */}
-      <View style={styles.topBar}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerIconCircle}>
-            <ShieldCheck size={18} color={Colors.cyanBlue} />
+      {/* ============================================================ */}
+      {/* 1. PREMIUM ROUNDED ACCOUNT HEADER                            */}
+      {/* ============================================================ */}
+      <Animated.View style={[styles.headerCard, animatedHeaderStyle]}>
+        {/* Subtle Automotive Wave Watermark in Background */}
+        <View style={styles.watermarkContainer} pointerEvents="none">
+          <Svg width={width} height="120" viewBox="0 0 375 120" fill="none">
+            <Path
+              d="M-20 60 C 80 10, 180 110, 300 40 C 360 0, 400 30, 420 45"
+              stroke={Colors.cyanBlue}
+              strokeWidth="2.5"
+              strokeOpacity="0.07"
+            />
+            <Path
+              d="M-10 80 C 90 30, 190 120, 310 60 C 370 20, 410 50, 430 65"
+              stroke={Colors.electricBlue}
+              strokeWidth="1.5"
+              strokeOpacity="0.05"
+            />
+          </Svg>
+        </View>
+
+        {/* Top Header Row */}
+        <View style={styles.topHeaderRow}>
+          <View style={styles.brandBadge}>
+            <Droplets size={12} color={Colors.cyanBlue} />
+            <AppText variant="overline" color={Colors.cyanBlue} style={styles.brandBadgeText}>
+              THE BLACK WASH · ACCOUNT HUB
+            </AppText>
           </View>
-          <View style={styles.headerTitles}>
+
+          <TouchableOpacity
+            onPress={() => setIsEditProfileOpen(true)}
+            style={styles.settingsCircleBtn}
+            activeOpacity={0.75}
+            accessibilityLabel="Edit Profile"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Edit3 size={15} color={Colors.cyanBlue} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Profile Identity (Avatar + Name + Status) */}
+        <View style={styles.profileIdentityRow}>
+          <Animated.View style={[styles.avatarCircle, animatedAvatarStyle]}>
             <AppText variant="h3" weight="bold" color={Colors.textPrimary}>
-              My Account
+              {initials}
             </AppText>
-            <AppText variant="caption" color={Colors.textMuted} style={{ fontSize: 11 }}>
-              Garage & Doorstep Settings
-            </AppText>
+          </Animated.View>
+
+          <View style={styles.profileInfoCol}>
+            <View style={styles.nameRow}>
+              <AppText variant="h3" weight="bold" color={Colors.textPrimary} numberOfLines={1}>
+                {user?.fullname || 'The Black Wash Customer'}
+              </AppText>
+            </View>
+
+            <View style={styles.contactRow}>
+              <Mail size={12} color={Colors.cyanBlue} />
+              <AppText variant="caption" color={Colors.textSecondary} numberOfLines={1}>
+                {user?.email || 'customer@theblackwash.com'}
+              </AppText>
+            </View>
+
+            {/* Verified Member Chip */}
+            <View style={styles.verifiedPill}>
+              <ShieldCheck size={11} color={Colors.cyanBlue} />
+              <AppText variant="caption" weight="bold" color={Colors.cyanBlue} style={styles.verifiedText}>
+                VERIFIED DOORSTEP CLIENT
+              </AppText>
+            </View>
           </View>
         </View>
 
-        <View style={styles.vipBadge}>
-          <View style={styles.radarDot} />
-          <AppText variant="caption" weight="bold" color={Colors.cyanBlue} style={{ fontSize: 10 }}>
-            Active Member
-          </AppText>
-        </View>
-      </View>
-      <View style={styles.neonHorizonLine} />
+        {/* Account Mini Stats Bar (100% Real Backend Data) */}
+        <Animated.View style={[styles.statsCard, animatedStatsStyle]}>
+          <View style={styles.statItem}>
+            <AppText variant="h3" weight="bold" color={Colors.cyanBlue}>
+              {String(totalBookingsCount).padStart(2, '0')}
+            </AppText>
+            <AppText variant="overline" color={Colors.textMuted} style={styles.statLabel}>
+              BOOKINGS
+            </AppText>
+          </View>
 
+          <View style={styles.statDivider} />
+
+          <View style={styles.statItem}>
+            <AppText variant="h3" weight="bold" color={Colors.textPrimary}>
+              {String(completedBookingsCount).padStart(2, '0')}
+            </AppText>
+            <AppText variant="overline" color={Colors.textMuted} style={styles.statLabel}>
+              COMPLETED
+            </AppText>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statItem}>
+            <AppText variant="h3" weight="bold" color={Colors.cyanBlue}>
+              {String(vehiclesCount).padStart(2, '0')}
+            </AppText>
+            <AppText variant="overline" color={Colors.textMuted} style={styles.statLabel}>
+              VEHICLES
+            </AppText>
+          </View>
+        </Animated.View>
+      </Animated.View>
+
+      {/* ============================================================ */}
+      {/* 2. SCROLLABLE ACCOUNT SECTIONS                               */}
+      {/* ============================================================ */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isProfileFetching || isVehiclesFetching}
+            refreshing={isProfileFetching || isVehiclesFetching || isBookingsFetching}
             onRefresh={onRefresh}
             tintColor={Colors.cyanBlue}
             colors={[Colors.cyanBlue]}
           />
         }
       >
-        {/* User Card */}
-        <AppCard variant="default" style={styles.userCard}>
-          <View style={styles.userRow}>
-            <View style={styles.avatarCircle}>
-              <AppText variant="h3" weight="bold" color={Colors.primaryBlack}>
-                {initials}
-              </AppText>
-            </View>
-
-            <View style={styles.userInfo}>
-              <View style={styles.userNameRow}>
-                <AppText variant="h4" weight="bold" color={Colors.textPrimary}>
-                  {user?.fullname || 'Customer'}
-                </AppText>
-                <View style={styles.verifiedBadge}>
-                  <ShieldCheck size={11} color={Colors.cyanBlue} />
-                  <AppText variant="caption" weight="bold" color={Colors.cyanBlue} style={{ fontSize: 10 }}>
-                    Verified
-                  </AppText>
+        <Animated.View style={[styles.sectionsWrapper, animatedContentStyle]}>
+          {/* SECTION 1: Garage & Vehicles */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <View style={styles.sectionHeaderIconCircle}>
+                  <Car size={15} color={Colors.cyanBlue} />
                 </View>
-              </View>
-
-              <View style={styles.emailRow}>
-                <Mail size={12} color={Colors.textMuted} />
-                <AppText variant="caption" color={Colors.textSecondary}>
-                  {user?.email || 'customer@theblackwash.com'}
+                <AppText variant="h4" weight="bold" color={Colors.textPrimary}>
+                  My Garage
                 </AppText>
               </View>
+              <TouchableOpacity
+                onPress={() => setIsAddVehicleOpen(true)}
+                style={styles.addVehicleBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Add new vehicle"
+              >
+                <Plus size={13} color={Colors.cyanBlue} />
+                <AppText variant="caption" weight="bold" color={Colors.cyanBlue}>
+                  Add Vehicle
+                </AppText>
+              </TouchableOpacity>
             </View>
 
-            {user && (
+            {vehicles?.length ? (
+              <View style={styles.vehiclesList}>
+                {vehicles.map((v) => (
+                  <AppCard key={v.id} variant="default" style={styles.vehicleItemCard}>
+                    <View style={styles.vehicleItemHeader}>
+                      <View style={styles.vehicleMainInfo}>
+                        <View style={styles.vehicleTitleRow}>
+                          <AppText variant="body" weight="bold" color={Colors.textPrimary}>
+                            {v.brand} {v.model}
+                          </AppText>
+                          {v.is_default && (
+                            <View style={styles.defaultPill}>
+                              <AppText variant="caption" weight="bold" color={Colors.cyanBlue} style={{ fontSize: 10 }}>
+                                Default
+                              </AppText>
+                            </View>
+                          )}
+                        </View>
+                        <AppText variant="caption" color={Colors.textSecondary}>
+                          {v.registration_number} • {v.vehicle_type?.toUpperCase()}
+                          {v.color ? ` • ${v.color}` : ''}
+                        </AppText>
+                      </View>
+
+                      <View style={styles.vehicleActions}>
+                        {!v.is_default && (
+                          <TouchableOpacity
+                            onPress={() => handleSetDefault(v)}
+                            style={styles.setDefaultBtn}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Set ${v.brand} as default`}
+                          >
+                            <CheckCircle2 size={12} color={Colors.textMuted} />
+                            <AppText variant="caption" color={Colors.textMuted} style={{ fontSize: 10 }}>
+                              Set Default
+                            </AppText>
+                          </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                          onPress={() => handleDeleteVehicle(v)}
+                          style={styles.deleteVehicleBtn}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Delete ${v.brand}`}
+                        >
+                          <Trash2 size={15} color={Colors.error} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </AppCard>
+                ))}
+              </View>
+            ) : (
               <TouchableOpacity
-                onPress={() => setIsEditProfileOpen(true)}
-                style={styles.editProfileBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => setIsAddVehicleOpen(true)}
+                activeOpacity={0.82}
+                accessibilityRole="button"
+                accessibilityLabel="Add vehicle to garage"
               >
-                <Edit3 size={15} color={Colors.cyanBlue} />
+                <AppCard variant="outlined" style={styles.emptyGarageCard}>
+                  <View style={styles.emptyGarageIconBox}>
+                    <Car size={20} color={Colors.cyanBlue} />
+                  </View>
+                  <View style={styles.emptyGarageText}>
+                    <AppText variant="bodySmall" weight="semiBold" color={Colors.textPrimary}>
+                      No Vehicles in Garage
+                    </AppText>
+                    <AppText variant="caption" color={Colors.textSecondary}>
+                      Add your vehicle for 1-tap bookings & custom detailing
+                    </AppText>
+                  </View>
+                </AppCard>
               </TouchableOpacity>
             )}
           </View>
-        </AppCard>
 
-        {/* Quick Shortcut: My Bookings */}
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/bookings')}
-          activeOpacity={0.8}
-        >
-          <AppCard variant="outlined" style={styles.shortcutCard}>
-            <View style={styles.shortcutLeft}>
-              <View style={styles.shortcutIconBox}>
-                <Calendar size={16} color={Colors.cyanBlue} />
-              </View>
-              <View>
-                <AppText variant="bodySmall" weight="bold" color={Colors.textPrimary}>
-                  My Doorstep Bookings
-                </AppText>
-                <AppText variant="caption" color={Colors.textMuted}>
-                  Track active washes & history
+          {/* SECTION 2: Doorstep Service Hub & Direct Support */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <View style={styles.sectionHeaderIconCircle}>
+                  <Sparkles size={15} color={Colors.cyanBlue} />
+                </View>
+                <AppText variant="h4" weight="bold" color={Colors.textPrimary}>
+                  Doorstep Service Hub
                 </AppText>
               </View>
             </View>
-            <ChevronRight size={16} color={Colors.textMuted} />
-          </AppCard>
-        </TouchableOpacity>
 
-        {/* Garage Management Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <Car size={16} color={Colors.cyanBlue} />
-              <AppText variant="h4" weight="bold">
-                My Garage
-              </AppText>
-            </View>
-            <TouchableOpacity
-              onPress={() => setIsAddVehicleOpen(true)}
-              style={styles.addBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Plus size={13} color={Colors.cyanBlue} />
-              <AppText variant="caption" weight="bold" color={Colors.cyanBlue}>
-                Add Vehicle
-              </AppText>
-            </TouchableOpacity>
-          </View>
-
-          {vehicles?.length ? (
-            <View style={styles.vehiclesList}>
-              {vehicles.map((v) => (
-                <AppCard key={v.id} variant="default" style={styles.vehicleItemCard}>
-                  <View style={styles.vehicleItemHeader}>
-                    <View style={styles.vehicleMainInfo}>
-                      <AppText variant="body" weight="bold" color={Colors.textPrimary}>
-                        {v.brand} {v.model}
-                      </AppText>
-                      <AppText variant="caption" color={Colors.textSecondary}>
-                        {v.registration_number} • {v.vehicle_type?.toUpperCase()}
-                        {v.color ? ` • ${v.color}` : ''}
-                      </AppText>
-                    </View>
-
-                    <View style={styles.vehicleActions}>
-                      {!v.is_default && (
-                        <TouchableOpacity
-                          onPress={() => handleSetDefault(v)}
-                          style={styles.setDefaultBtn}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <CheckCircle2 size={13} color={Colors.textMuted} />
-                          <AppText variant="caption" color={Colors.textMuted} style={{ fontSize: 10 }}>
-                            Set Default
-                          </AppText>
-                        </TouchableOpacity>
-                      )}
-
-                      {v.is_default && (
-                        <View style={styles.defaultPill}>
-                          <AppText variant="caption" weight="bold" color={Colors.cyanBlue} style={{ fontSize: 10 }}>
-                            Default
-                          </AppText>
-                        </View>
-                      )}
-
-                      <TouchableOpacity
-                        onPress={() => handleDeleteVehicle(v)}
-                        style={styles.deleteBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Trash2 size={15} color={Colors.error} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </AppCard>
-              ))}
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => setIsAddVehicleOpen(true)}
-              activeOpacity={0.8}
-            >
-              <AppCard variant="outlined" style={styles.emptyGarageCard}>
-                <Car size={22} color={Colors.cyanBlue} />
-                <View style={styles.emptyGarageText}>
-                  <AppText variant="bodySmall" weight="semiBold" color={Colors.textPrimary}>
-                    No Vehicles in Garage
+            <AppCard variant="default" style={styles.hubCard}>
+              <View style={styles.hubRow}>
+                <View style={styles.hubIconCircle}>
+                  <MapPin size={15} color={Colors.cyanBlue} />
+                </View>
+                <View style={styles.hubTextCol}>
+                  <AppText variant="bodySmall" weight="bold" color={Colors.textPrimary}>
+                    Primary Service Area
                   </AppText>
                   <AppText variant="caption" color={Colors.textSecondary}>
-                    Add your car for 1-tap bookings & custom wash assignments
+                    {BUSINESS_CONTACT.location}
                   </AppText>
                 </View>
-              </AppCard>
-            </TouchableOpacity>
-          )}
-        </View>
+              </View>
 
-        {/* Doorstep Service Hub Info */}
-        <View style={styles.section}>
-          <AppText variant="h4" weight="bold" style={styles.sectionTitle}>
-            Doorstep Service Hub
-          </AppText>
+              <AppDivider style={styles.hubDivider} />
 
-          <AppCard variant="default" style={styles.hubCard}>
-            <View style={styles.hubRow}>
-              <MapPin size={16} color={Colors.cyanBlue} />
-              <View style={styles.hubTextCol}>
-                <AppText variant="bodySmall" weight="bold" color={Colors.textPrimary}>
-                  Primary Service Area
-                </AppText>
-                <AppText variant="caption" color={Colors.textSecondary}>
-                  {BUSINESS_CONTACT.location}
+              <View style={styles.hubRow}>
+                <View style={styles.hubIconCircle}>
+                  <Clock size={15} color={Colors.cyanBlue} />
+                </View>
+                <View style={styles.hubTextCol}>
+                  <AppText variant="bodySmall" weight="bold" color={Colors.textPrimary}>
+                    Operating Hours
+                  </AppText>
+                  <AppText variant="caption" color={Colors.textSecondary}>
+                    {BUSINESS_CONTACT.workingHours}
+                  </AppText>
+                </View>
+              </View>
+            </AppCard>
+
+            {/* Direct WhatsApp & Hotline Support Actions */}
+            <View style={styles.supportActionsRow}>
+              <TouchableOpacity
+                onPress={() => openWhatsApp('Hi The Black Wash support, I need assistance with my account.')}
+                style={styles.supportActionBtn}
+                activeOpacity={0.82}
+                accessibilityRole="button"
+                accessibilityLabel="Chat with Support on WhatsApp"
+              >
+                <View style={styles.supportIconCircle}>
+                  <MessageCircle size={16} color={Colors.cyanBlue} />
+                </View>
+                <View style={styles.supportBtnTextCol}>
+                  <AppText variant="bodySmall" weight="bold" color={Colors.textPrimary}>
+                    WhatsApp Chat
+                  </AppText>
+                  <AppText variant="caption" color={Colors.textMuted} style={{ fontSize: 10 }}>
+                    Fast response
+                  </AppText>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => directCall()}
+                style={styles.supportActionBtn}
+                activeOpacity={0.82}
+                accessibilityRole="button"
+                accessibilityLabel="Call Support Hotline"
+              >
+                <View style={styles.supportIconCircle}>
+                  <Phone size={16} color={Colors.cyanBlue} />
+                </View>
+                <View style={styles.supportBtnTextCol}>
+                  <AppText variant="bodySmall" weight="bold" color={Colors.textPrimary}>
+                    Call Hotline
+                  </AppText>
+                  <AppText variant="caption" color={Colors.textMuted} style={{ fontSize: 10 }}>
+                    Direct phone
+                  </AppText>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* SECTION 3: Legal, Privacy & Policies */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <View style={styles.sectionHeaderIconCircle}>
+                  <Shield size={15} color={Colors.cyanBlue} />
+                </View>
+                <AppText variant="h4" weight="bold" color={Colors.textPrimary}>
+                  Legal & Policies
                 </AppText>
               </View>
             </View>
 
-            <AppDivider style={styles.hubDivider} />
+            <AppCard variant="default" style={styles.legalLinksCard}>
+              <TouchableOpacity
+                onPress={() => openLegalUrl(LEGAL_URLS.privacyPolicy)}
+                style={styles.legalLinkRow}
+                activeOpacity={0.75}
+                accessibilityRole="link"
+                accessibilityLabel="Open Privacy Policy"
+              >
+                <View style={styles.legalLinkLeft}>
+                  <Shield size={15} color={Colors.cyanBlue} />
+                  <AppText variant="bodySmall" weight="medium" color={Colors.textPrimary}>
+                    Privacy Policy
+                  </AppText>
+                </View>
+                <ChevronRight size={15} color={Colors.textMuted} />
+              </TouchableOpacity>
 
-            <View style={styles.hubRow}>
-              <Clock size={16} color={Colors.cyanBlue} />
-              <View style={styles.hubTextCol}>
-                <AppText variant="bodySmall" weight="bold" color={Colors.textPrimary}>
-                  Operating Hours
-                </AppText>
-                <AppText variant="caption" color={Colors.textSecondary}>
-                  {BUSINESS_CONTACT.workingHours}
-                </AppText>
-              </View>
-            </View>
-          </AppCard>
-        </View>
+              <AppDivider style={styles.legalLinkDivider} />
 
-        {/* Support & Logout */}
-        <View style={styles.actionSection}>
-          <AppButton
-            variant="primary"
-            size="md"
-            fullWidth
-            onPress={() => directCall()}
-            leftIcon={<Phone size={16} color={Colors.primaryBlack} />}
-            style={styles.callSupportBtn}
-          >
-            Direct Call Support ({BUSINESS_CONTACT.phoneNumber})
-          </AppButton>
+              <TouchableOpacity
+                onPress={() => openLegalUrl(LEGAL_URLS.terms)}
+                style={styles.legalLinkRow}
+                activeOpacity={0.75}
+                accessibilityRole="link"
+                accessibilityLabel="Open Terms of Service"
+              >
+                <View style={styles.legalLinkLeft}>
+                  <FileText size={15} color={Colors.cyanBlue} />
+                  <AppText variant="bodySmall" weight="medium" color={Colors.textPrimary}>
+                    Terms of Service
+                  </AppText>
+                </View>
+                <ChevronRight size={15} color={Colors.textMuted} />
+              </TouchableOpacity>
 
-          <AppButton
-            variant="dark"
-            size="md"
-            fullWidth
-            onPress={() => openWhatsApp('Hi The Black Wash support, I need assistance with my account.')}
-            leftIcon={<MessageCircle size={16} color={Colors.cyanBlue} />}
-            style={styles.supportBtn}
-          >
-            Chat Support on WhatsApp
-          </AppButton>
+              <AppDivider style={styles.legalLinkDivider} />
 
-          <AppButton
-            variant="ghost"
-            size="md"
-            fullWidth
-            loading={isLoggingOut}
+              <TouchableOpacity
+                onPress={() => openLegalUrl(LEGAL_URLS.accountDeletion)}
+                style={styles.legalLinkRow}
+                activeOpacity={0.75}
+                accessibilityRole="link"
+                accessibilityLabel="Open Account and Data Deletion information"
+              >
+                <View style={styles.legalLinkLeft}>
+                  <UserX size={15} color={Colors.cyanBlue} />
+                  <AppText variant="bodySmall" weight="medium" color={Colors.textPrimary}>
+                    Account & Data Deletion
+                  </AppText>
+                </View>
+                <ChevronRight size={15} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </AppCard>
+          </View>
+
+          {/* SECTION 4: Sign Out Action (Destructive Red) */}
+          <TouchableOpacity
             onPress={handleLogout}
-            leftIcon={<LogOut size={16} color={Colors.error} />}
-            style={styles.logoutBtn}
+            disabled={isLoggingOut}
+            style={styles.logoutCard}
+            activeOpacity={0.82}
+            accessibilityRole="button"
+            accessibilityLabel="Sign Out of Account"
           >
-            Sign Out
-          </AppButton>
-        </View>
+            <View style={styles.logoutIconBox}>
+              <LogOut size={16} color={Colors.error} />
+            </View>
+            <View style={styles.logoutTextCol}>
+              <AppText variant="bodySmall" weight="bold" color={Colors.error}>
+                {isLoggingOut ? 'Signing out...' : 'Sign Out of Account'}
+              </AppText>
+              <AppText variant="caption" color={Colors.textMuted} style={{ fontSize: 10 }}>
+                Securely clear authentication session on this device
+              </AppText>
+            </View>
+          </TouchableOpacity>
 
-        {/* App Version Info */}
-        <View style={styles.versionBlock}>
-          <AppText variant="overline" color={Colors.textMuted} center>
-            The Black Wash · v1.0.0 · Doorstep Car Care
-          </AppText>
-        </View>
+          {/* App Version Tag */}
+          <View style={styles.versionBlock}>
+            <AppText variant="overline" color={Colors.textMuted} center>
+              THE BLACK WASH · v1.0.0 · DOORSTEP DETAILING
+            </AppText>
+          </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Add Vehicle Modal */}
@@ -448,145 +679,212 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.primaryBlack,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+  headerCard: {
     backgroundColor: Colors.deepNavy,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.lg,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    borderBottomWidth: 1.5,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.22)',
+    shadowColor: Colors.cyanBlue,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+    position: 'relative',
+    overflow: 'hidden',
+    gap: Spacing.md,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    flex: 1,
-  },
-  headerIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.full,
-    backgroundColor: 'rgba(0, 207, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 207, 255, 0.35)',
+  watermarkContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitles: {
-    flex: 1,
-    gap: 1,
-  },
-  vipBadge: {
+  topHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 207, 255, 0.12)',
-    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+  },
+  brandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: 'rgba(0, 207, 255, 0.08)',
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(0, 207, 255, 0.30)',
+    borderColor: 'rgba(0, 207, 255, 0.25)',
+  },
+  brandBadgeText: {
+    fontSize: 9,
+    letterSpacing: 1.1,
+  },
+  settingsCircleBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileIdentityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  avatarCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 2,
+    borderColor: Colors.cyanBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.cyanBlue,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  profileInfoCol: {
+    flex: 1,
+    gap: 3,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  verifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
-  },
-  radarDot: {
-    width: 6,
-    height: 6,
+    backgroundColor: 'rgba(0, 207, 255, 0.10)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: Radius.full,
-    backgroundColor: '#22C55E',
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
-  neonHorizonLine: {
-    height: 1,
-    backgroundColor: 'rgba(0, 207, 255, 0.20)',
-    width: '100%',
+  verifiedText: {
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginTop: 2,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 1,
+  },
+  statLabel: {
+    fontSize: 9,
+    letterSpacing: 0.9,
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.border,
   },
   scroll: {
     flex: 1,
   },
   content: {
     padding: Spacing.lg,
+    paddingBottom: 115, // Clearance for floating dock
+  },
+  sectionsWrapper: {
     gap: Spacing.lg,
-    paddingBottom: 110, // Dock clearance
   },
-  userCard: {
-    padding: Spacing.md,
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.cyanBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  userNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 207, 255, 0.12)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: Radius.full,
-    gap: 2,
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  editProfileBtn: {
-    padding: Spacing.xs,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.surfaceDark,
-  },
-  shortcutCard: {
+  menuCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: Spacing.md,
-    backgroundColor: Colors.surfaceDark,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  shortcutLeft: {
+  menuCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    flex: 1,
   },
-  shortcutIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.sm,
-    backgroundColor: 'rgba(0, 207, 255, 0.12)',
+  menuIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 207, 255, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  section: {
-    gap: Spacing.sm,
+  menuTextCol: {
+    flex: 1,
+    gap: 1,
   },
-  sectionTitle: {
-    marginBottom: 2,
+  chevronBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0, 207, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionContainer: {
+    gap: Spacing.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 2,
   },
   sectionHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
   },
-  addBtn: {
+  sectionHeaderIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 207, 255, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addVehicleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
@@ -597,6 +895,10 @@ const styles = StyleSheet.create({
   },
   vehicleItemCard: {
     padding: Spacing.md,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   vehicleItemHeader: {
     flexDirection: 'row',
@@ -605,7 +907,20 @@ const styles = StyleSheet.create({
   },
   vehicleMainInfo: {
     flex: 1,
-    gap: 1,
+    gap: 2,
+  },
+  vehicleTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  defaultPill: {
+    backgroundColor: 'rgba(0, 207, 255, 0.15)',
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 1,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.25)',
   },
   vehicleActions: {
     flexDirection: 'row',
@@ -615,20 +930,16 @@ const styles = StyleSheet.create({
   setDefaultBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceDark,
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
     paddingHorizontal: Spacing.xs,
     paddingVertical: 3,
     borderRadius: Radius.full,
-    gap: 2,
+    gap: 3,
   },
-  defaultPill: {
-    backgroundColor: 'rgba(0, 207, 255, 0.15)',
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-  },
-  deleteBtn: {
-    padding: 4,
+  deleteVehicleBtn: {
+    padding: 6,
   },
   emptyGarageCard: {
     flexDirection: 'row',
@@ -636,7 +947,19 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.md,
     borderStyle: 'dashed',
-    backgroundColor: Colors.surfaceDark,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
+  },
+  emptyGarageIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 207, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyGarageText: {
     flex: 1,
@@ -645,11 +968,25 @@ const styles = StyleSheet.create({
   hubCard: {
     padding: Spacing.md,
     gap: Spacing.xs,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   hubRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.md,
+  },
+  hubIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 207, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   hubTextCol: {
     flex: 1,
@@ -657,18 +994,85 @@ const styles = StyleSheet.create({
   },
   hubDivider: {
     marginVertical: 4,
-    backgroundColor: Colors.borderDark,
+    backgroundColor: Colors.border,
   },
-  actionSection: {
+  supportActionsRow: {
+    flexDirection: 'row',
     gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  supportBtn: {
     marginTop: 2,
   },
-  logoutBtn: {
+  supportActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.sm,
+  },
+  supportIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 207, 255, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supportBtnTextCol: {
+    flex: 1,
+    gap: 1,
+  },
+  legalLinksCard: {
+    padding: Spacing.sm,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  legalLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  legalLinkLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  legalLinkDivider: {
+    marginVertical: 0,
+    backgroundColor: Colors.border,
+  },
+  logoutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.25)',
+    padding: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  logoutIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(239, 68, 68, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutTextCol: {
+    flex: 1,
+    gap: 1,
   },
   versionBlock: {
     paddingVertical: Spacing.xs,

@@ -10,13 +10,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Mail, ArrowLeft } from 'lucide-react-native';
+import { Mail } from 'lucide-react-native';
 
 import { Colors, Spacing, Radius, Shadows } from '@/theme';
 import AppText from '@/components/ui/AppText';
 import AppButton from '@/components/ui/AppButton';
 import {
-  AuthBackground,
   AuthHeader,
   AuthErrorMessage,
   OtpInput,
@@ -27,9 +26,9 @@ import { useOtpVerify } from '@/features/auth/hooks/useOtpVerify';
  * OTP Verification Screen
  *
  * Requirements:
- * - Full-screen cinematic backdrop with dark scrim overlay
- * - Poppins typography across every text element
- * - Frosted-glass form container
+ * - Solid premium dark branding matching Home screen (#080B10 / #101923)
+ * - Rounded AuthHeader with brand badge & back action
+ * - Dark surface form card (#121C27) with border (#263442)
  * - 6-digit segmented OTP input with auto-advance and clipboard paste
  * - Displays masked email destination & 10-minute expiry warning
  * - Handles attempt countdown & rate limit blocking
@@ -76,9 +75,18 @@ export default function OtpVerifyScreen() {
   );
 
   return (
-    <AuthBackground overlayOpacity={0.82}>
+    <View style={styles.root}>
+      <StatusBar style="light" />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <StatusBar style="light" />
+        {/* Rounded Top Auth Header with Back Button */}
+        <AuthHeader
+          showBack
+          onBack={() => router.back()}
+          badge="THE BLACK WASH · SECURITY"
+          title="Verify Email"
+          subtitle={`Enter the 6-digit code sent to ${maskedEmail}`}
+        />
+
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -89,33 +97,11 @@ export default function OtpVerifyScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Back Button */}
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-              accessibilityLabel="Go back to registration"
-              accessibilityRole="button"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <ArrowLeft size={16} color={Colors.cyanBlue} />
-              <AppText variant="bodyMedium" weight="medium" color={Colors.cyanBlue}>
-                Back
-              </AppText>
-            </TouchableOpacity>
-
-            {/* Header */}
-            <AuthHeader
-              badge="THE BLACK WASH · SECURITY"
-              title="Verify Email"
-              subtitle={`We sent a 6-digit confirmation code to ${maskedEmail}`}
-              center
-            />
-
-            {/* Frosted Glass Form Card */}
+            {/* Premium Dark Surface Form Card */}
             <View style={styles.formCard}>
               {/* Mail Icon Highlight */}
               <View style={styles.iconContainer}>
-                <Mail size={28} color={Colors.cyanBlue} strokeWidth={1.75} />
+                <Mail size={26} color={Colors.cyanBlue} strokeWidth={1.75} />
               </View>
 
               {/* 6-Digit Segmented OTP Input */}
@@ -201,44 +187,45 @@ export default function OtpVerifyScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </AuthBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.primaryBlack,
+  },
   safe: {
     flex: 1,
   },
-  flex: { flex: 1 },
-  scroll: { flex: 1 },
+  flex: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
     paddingBottom: Spacing['3xl'],
     justifyContent: 'center',
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xs,
-    alignSelf: 'flex-start',
-  },
   formCard: {
-    backgroundColor: 'rgba(16, 25, 35, 0.76)',
-    borderRadius: Radius.xl,
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: Radius['2xl'],
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: Colors.border,
     padding: Spacing.xl,
     gap: Spacing.lg,
     alignItems: 'center',
     ...Shadows.lg,
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: 'rgba(0, 207, 255, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(0, 207, 255, 0.22)',
@@ -254,7 +241,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     shadowColor: Colors.cyanBlue,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
   },

@@ -7,6 +7,14 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,12 +22,11 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react-native';
 
-import { Colors, Spacing, Radius, Shadows, FontSize } from '@/theme';
+import { Colors, Spacing, Radius, Shadows } from '@/theme';
 import AppText from '@/components/ui/AppText';
 import AppButton from '@/components/ui/AppButton';
 import AppInput from '@/components/ui/AppInput';
 import {
-  AuthBackground,
   AuthHeader,
   AuthErrorMessage,
 } from '@/features/auth/components';
@@ -30,9 +37,10 @@ import { useLogin } from '@/features/auth/hooks/useLogin';
  * Login Screen
  *
  * Requirements:
- * - Full-screen cinematic backdrop with dark scrim overlay
- * - Poppins typography across every text element
- * - Frosted-glass form container
+ * - Solid premium dark branding matching Home screen (#080B10 / #101923)
+ * - Rounded AuthHeader with brand badge & automotive wave watermark
+ * - Coordinated Reanimated entrance animations (header drop-in, form card slide-up)
+ * - Dark surface form card (#121C27) with border (#263442)
  * - React Hook Form + Zod schema validation
  * - Clear field-level error messages
  * - Prevents duplicate submissions & displays API error mapping
@@ -43,6 +51,41 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   const { submit, isLoading, apiError, clearError } = useLogin();
+
+  // Entrance animation values
+  const headerOpacity = useSharedValue(0);
+  const headerTranslateY = useSharedValue(-12);
+  const formOpacity = useSharedValue(0);
+  const formTranslateY = useSharedValue(18);
+  const bottomOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    // 1. Header entrance
+    headerOpacity.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
+    headerTranslateY.value = withTiming(0, { duration: 450, easing: Easing.out(Easing.cubic) });
+
+    // 2. Form card slide-up
+    formOpacity.value = withDelay(150, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    formTranslateY.value = withDelay(150, withSpring(0, { damping: 14, stiffness: 220 }));
+
+    // 3. Bottom switch prompt
+    bottomOpacity.value = withDelay(300, withTiming(1, { duration: 450 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const animatedHeaderStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+
+  const animatedFormStyle = useAnimatedStyle(() => ({
+    opacity: formOpacity.value,
+    transform: [{ translateY: formTranslateY.value }],
+  }));
+
+  const animatedBottomStyle = useAnimatedStyle(() => ({
+    opacity: bottomOpacity.value,
+  }));
 
   const {
     control,
@@ -70,7 +113,11 @@ export default function LoginScreen() {
   const onSubmit = handleSubmit((data) => {
     clearError();
     submit(data, {
-      onSuccess: () => router.replace('/(auth)/auth-success'),
+      onSuccess: () =>
+        router.replace({
+          pathname: '/(auth)/auth-success',
+          params: { type: 'login' },
+        }),
     });
   });
 
@@ -82,9 +129,18 @@ export default function LoginScreen() {
   };
 
   return (
-    <AuthBackground overlayOpacity={0.82}>
+    <View style={styles.root}>
+      <StatusBar style="light" />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <StatusBar style="light" />
+        {/* Animated Rounded Top Auth Header */}
+        <Animated.View style={animatedHeaderStyle}>
+          <AuthHeader
+            badge="THE BLACK WASH · DOORSTEP CARE"
+            title="Welcome Back"
+            subtitle="Sign in to your account for doorstep car detailing"
+          />
+        </Animated.View>
+
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -95,13 +151,6 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Header with Brand Badge */}
-            <AuthHeader
-              badge="THE BLACK WASH · DOORSTEP CARE"
-              title="Welcome Back"
-              subtitle="Sign in to your account for doorstep car detailing"
-            />
-
             {/* Verified Email Success Banner */}
             {successMessage && (
               <AuthErrorMessage
@@ -111,8 +160,8 @@ export default function LoginScreen() {
               />
             )}
 
-            {/* Frosted Glass Form Card */}
-            <View style={styles.formCard}>
+            {/* Animated Premium Dark Surface Form Card */}
+            <Animated.View style={[styles.formCard, animatedFormStyle]}>
               {/* Email Input */}
               <Controller
                 control={control}
@@ -137,7 +186,7 @@ export default function LoginScreen() {
                     returnKeyType="next"
                     disabled={isLoading}
                     leftIcon={<Mail size={18} color={Colors.cyanBlue} strokeWidth={1.8} />}
-                    inputContainerStyle={styles.glassInputContainer}
+                    inputContainerStyle={styles.darkInputContainer}
                     inputStyle={styles.inputTextDark}
                   />
                 )}
@@ -181,7 +230,7 @@ export default function LoginScreen() {
                         )}
                       </TouchableOpacity>
                     }
-                    inputContainerStyle={styles.glassInputContainer}
+                    inputContainerStyle={styles.darkInputContainer}
                     inputStyle={styles.inputTextDark}
                   />
                 )}
@@ -206,79 +255,81 @@ export default function LoginScreen() {
                 disabled={!isValid || isLoading}
                 style={styles.submitButton}
               >
-                Log In
+                Sign In
               </AppButton>
-            </View>
+            </Animated.View>
 
-            {/* Footer Navigation */}
-            <View style={styles.footer}>
-              <AppText variant="body" color={Colors.textSecondary}>
+            {/* Bottom Register Switch Prompt */}
+            <Animated.View style={[styles.bottomSwitchRow, animatedBottomStyle]}>
+              <AppText variant="bodySmall" color={Colors.textSecondary}>
                 Don&apos;t have an account?{' '}
               </AppText>
               <TouchableOpacity
                 onPress={() => router.push('/(auth)/register')}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                accessibilityRole="link"
-                accessibilityLabel="Create an account"
+                disabled={isLoading}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Navigate to Register"
               >
-                <AppText variant="bodyMedium" weight="semiBold" color={Colors.cyanBlue}>
-                  Create account
+                <AppText variant="bodySmall" weight="bold" color={Colors.cyanBlue}>
+                  Create Account →
                 </AppText>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </AuthBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.primaryBlack,
+  },
   safe: {
     flex: 1,
   },
-  flex: { flex: 1 },
-  scroll: { flex: 1 },
+  flex: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing['3xl'],
-    justifyContent: 'center',
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing['2xl'],
+    gap: Spacing.lg,
   },
   alertBanner: {
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.xs,
   },
   formCard: {
-    backgroundColor: 'rgba(16, 25, 35, 0.76)',
+    backgroundColor: Colors.surfaceCard,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    padding: Spacing.xl,
+    borderColor: Colors.border,
+    padding: Spacing.lg,
     gap: Spacing.lg,
-    ...Shadows.lg,
+    ...Shadows.card,
   },
-  glassInputContainer: {
-    backgroundColor: 'rgba(8, 11, 16, 0.65)',
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+  darkInputContainer: {
+    backgroundColor: Colors.surfaceElevated,
+    borderColor: Colors.border,
   },
   inputTextDark: {
-    color: Colors.white,
-    fontSize: FontSize.md,
+    color: Colors.textPrimary,
   },
   submitButton: {
     marginTop: Spacing.xs,
-    shadowColor: Colors.cyanBlue,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  footer: {
+  bottomSwitchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: Spacing['2xl'],
-    paddingBottom: Spacing.md,
-    flexWrap: 'wrap',
+    paddingVertical: Spacing.sm,
   },
 });

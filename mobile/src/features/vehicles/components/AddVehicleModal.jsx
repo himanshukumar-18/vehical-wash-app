@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Car, Sparkles } from 'lucide-react-native';
 
 import { Colors, Spacing, Radius } from '@/theme';
@@ -11,6 +12,7 @@ import { useAddVehicleMutation } from '../vehiclesApi';
  * AddVehicleModal — quick dark modal form to add a vehicle into user's garage.
  */
 export default function AddVehicleModal({ visible, onClose, onSuccess }) {
+  const router = useRouter();
   const [addVehicle, { isLoading }] = useAddVehicleMutation();
 
   const [brand, setBrand] = useState('');
@@ -58,6 +60,18 @@ export default function AddVehicleModal({ visible, onClose, onSuccess }) {
       onClose();
       if (onSuccess) onSuccess(result);
     } catch (err) {
+      if (err?.status === 401 || err?.data?.code === 'AUTHENTICATION_REQUIRED') {
+        onClose();
+        Alert.alert(
+          'Sign In Required',
+          'Please sign in to add a vehicle to your garage.',
+          [
+            { text: 'Sign In', onPress: () => router.push('/(auth)/login') },
+            { text: 'Cancel', style: 'cancel' },
+          ]
+        );
+        return;
+      }
       const serverMessage =
         err?.data?.message ||
         err?.data?.registration_number?.[0] ||

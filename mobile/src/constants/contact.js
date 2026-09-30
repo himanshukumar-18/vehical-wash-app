@@ -8,8 +8,8 @@ export const BUSINESS_CONTACT = {
   name: 'The Black Wash',
   tagline: 'Doorstep Car Wash & Detailing',
   location: 'Hazaribagh, Jharkhand, India',
-  phoneNumber: process.env.EXPO_PUBLIC_CALL_NUMBER || process.env.EXPO_PUBLIC_WHATSAPP_NUMBER || '+917004050123',
-  whatsappNumber: process.env.EXPO_PUBLIC_WHATSAPP_NUMBER || '+917004050123',
+  phoneNumber: process.env.EXPO_PUBLIC_CALL_NUMBER || process.env.EXPO_PUBLIC_WHATSAPP_NUMBER,
+  whatsappNumber: process.env.EXPO_PUBLIC_WHATSAPP_NUMBER,
   supportEmail: 'contact@theblackwash.com',
   workingHours: '8:00 AM - 7:00 PM (All Days)',
 };
@@ -33,30 +33,61 @@ export function formatBookingWhatsAppMessage({
     ? `${vehicle.brand} ${vehicle.model} (${vehicle.registration_number}) [${vehicle.vehicle_type?.toUpperCase()}]`
     : 'Not Specified';
 
+  const priceText = totalPrice || service?.price
+    ? `₹${Math.round(totalPrice || service?.price)}`
+    : 'To be confirmed';
+
+  const dateLabel = bookingDate
+    ? new Date(bookingDate).toLocaleDateString('en-IN', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'Earliest Available';
+
   const lines = [
     '✨ *THE BLACK WASH — BOOKING REQUEST* ✨',
-    '────────────────────────',
-    `🆔 *Booking Ref:* #${bookingNumber || 'NEW'}`,
-    `🚗 *Vehicle:* ${vehicleText}`,
-    `🧼 *Service:* ${service?.name || 'Standard Wash'} (₹${totalPrice || service?.price || '0'})`,
-    `📅 *Preferred Date:* ${bookingDate || 'Earliest Available'}`,
-    `📍 *Doorstep Address:* ${address || 'Hazaribagh'}`,
+    '━━━━━━━━━━━━━━━━━━━━━━━━',
+    `🆔 *Ref:* #${bookingNumber || 'NEW'}`,
+    '',
+    '🚗 *Vehicle Details*',
+    `   ${vehicleText}`,
+    '',
+    '🧼 *Service Selected*',
+    `   ${service?.name || 'Standard Wash'}`,
+    `   Duration: ${service?.duration_minutes ? `${service.duration_minutes} mins` : 'TBD'}`,
+    `   💰 Price: *${priceText}* (Cash/UPI on delivery)`,
+    '',
+    '📅 *Preferred Date*',
+    `   ${dateLabel}`,
+    '',
+    '📍 *Doorstep Address*',
+    `   ${address || 'Hazaribagh'}`,
   ];
 
   if (googleMapsUrl && googleMapsUrl.trim()) {
-    lines.push(`🗺️ *Google Maps:* ${googleMapsUrl.trim()}`);
+    lines.push(`   🗺️ Location: ${googleMapsUrl.trim()}`);
   }
 
+  lines.push('');
+  lines.push('👤 *Customer Details*');
   if (customerName) {
-    lines.push(`👤 *Customer:* ${customerName}${customerPhone ? ` (${customerPhone})` : ''}`);
+    lines.push(`   Name: ${customerName}`);
+  }
+  if (customerPhone && customerPhone.trim()) {
+    lines.push(`   Phone: ${customerPhone.trim()}`);
   }
 
   if (customerNote && customerNote.trim()) {
-    lines.push(`📝 *Note:* ${customerNote.trim()}`);
+    lines.push('');
+    lines.push(`📝 *Special Instructions*`);
+    lines.push(`   ${customerNote.trim()}`);
   }
 
-  lines.push('────────────────────────');
-  lines.push('Please confirm our doorstep car wash slot. Thank you!');
+  lines.push('');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('Please confirm my doorstep car wash slot. Thank you! 🙏');
 
   return lines.join('\n');
 }

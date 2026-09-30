@@ -1,51 +1,64 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ImageBackground,
+  TouchableOpacity,
+  useWindowDimensions,
+} from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
-  withSequence,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+import { Droplets, ArrowRight, Sparkles } from 'lucide-react-native';
 
-import { Colors, Spacing, FontSize } from '@/theme';
+import { Colors, Spacing, Radius, FontSize } from '@/theme';
 import AppText from '@/components/ui/AppText';
-import { AuthBackground } from '@/features/auth/components';
 import { useSessionRestore } from '@/features/auth/hooks/useSessionRestore';
 import { IS_DEV_HOME_PREVIEW } from '@/constants/devPreview';
 
+const SPLASH_BG_IMAGE = require('@/assets/images/login-register.png');
+
 /**
- * Splash Screen
+ * Splash & Welcome Onboarding Screen
  *
- * Dual responsibility:
- *  1. Animated brand reveal (fade + slide up) over The Black Wash authentic backdrop.
- *  2. Session restoration — validates stored JWT tokens or attempts refresh.
- *
- * After BOTH the minimum animation duration AND session restore complete,
- * navigates to:
- *   - Authenticated OR Dev Preview Mode → /(tabs)
- *   - Not authenticated (Production / Standard) → /(auth)/login
+ * Cinematic automotive welcome experience for The Black Wash:
+ * - Zone A: Minimal top brand header ("THE BLACK WASH · DOORSTEP CAR CARE")
+ * - Zone B: Dominant cinematic car-wash backdrop with multi-stop seamless gradient
+ * - Zone C: High-contrast headline ("Your Car. Our Care."), supporting copy,
+ *           and premium cyan "Get Started" CTA with press micro-interactions
+ * - Smooth entrance animations sequence orchestrated with React Native Reanimated
+ * - Responsive layout adapted for small, medium, and large iPhone screen heights
+ * - Seamless background session restore without blocking UI
  */
-
-const MIN_DISPLAY_MS = 2200;
-
 export default function SplashScreen_() {
+  const { height: screenHeight } = useWindowDimensions();
+  const isSmallScreen = screenHeight < 700;
+
   const restoreResult = useRef(null);
-  const animationDone = useRef(false);
   const navigated = useRef(false);
 
-  // Animation values
-  const logoOpacity = useSharedValue(0);
-  const logoTranslateY = useSharedValue(24);
-  const taglineOpacity = useSharedValue(0);
-  const accentWidth = useSharedValue(0);
-  const accentOpacity = useSharedValue(0);
+  // Reanimated entrance animation shared values
+  const bgOpacity = useSharedValue(0);
+  const topBrandOpacity = useSharedValue(0);
+  const topBrandTranslateY = useSharedValue(-14);
+  const headlineOpacity = useSharedValue(0);
+  const headlineTranslateY = useSharedValue(24);
+  const subtitleOpacity = useSharedValue(0);
+  const subtitleTranslateY = useSharedValue(16);
+  const ctaOpacity = useSharedValue(0);
+  const ctaScale = useSharedValue(0.92);
+  const pressScale = useSharedValue(1);
 
-  const navigate = useCallback((authenticated) => {
+  const navigateToApp = useCallback((authenticated) => {
     if (navigated.current) return;
     navigated.current = true;
     if (authenticated || IS_DEV_HOME_PREVIEW) {
@@ -55,204 +68,371 @@ export default function SplashScreen_() {
     }
   }, []);
 
-  const tryNavigate = useCallback(() => {
-    if (animationDone.current && restoreResult.current !== null) {
-      navigate(restoreResult.current);
-    }
-  }, [navigate]);
-
-  // Session restore callback
-  const onRestoreComplete = useCallback(
-    ({ authenticated }) => {
-      restoreResult.current = authenticated;
-      tryNavigate();
-    },
-    [tryNavigate],
-  );
+  // Handle background session restore
+  const onRestoreComplete = useCallback(({ authenticated }) => {
+    restoreResult.current = authenticated;
+  }, []);
 
   useSessionRestore(onRestoreComplete);
 
-  // Run animation sequence
+  // Orchestrated entrance animation sequence
   useEffect(() => {
-    // Hide native splash immediately — custom splash takes over
     SplashScreen.hideAsync();
 
-    // Animate logo in
-    logoOpacity.value = withTiming(1, {
-      duration: 650,
-      easing: Easing.out(Easing.cubic),
-    });
-    logoTranslateY.value = withTiming(0, {
+    // 1. Background Image Fade-In
+    bgOpacity.value = withTiming(1, {
       duration: 650,
       easing: Easing.out(Easing.cubic),
     });
 
-    // Animate accent line after logo appears
-    accentOpacity.value = withDelay(
-      350,
-      withTiming(1, { duration: 300 }),
+    // 2. Top Brand Pill Drop-In
+    topBrandOpacity.value = withDelay(
+      150,
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) })
     );
-    accentWidth.value = withDelay(
-      350,
-      withTiming(1, { duration: 750, easing: Easing.out(Easing.quad) }),
-    );
-
-    // Animate tagline after accent
-    taglineOpacity.value = withDelay(
-      750,
-      withTiming(1, { duration: 550, easing: Easing.out(Easing.cubic) }),
+    topBrandTranslateY.value = withDelay(
+      150,
+      withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) })
     );
 
-    // Mark animation done after minimum display time
-    const timer = setTimeout(() => {
-      animationDone.current = true;
-      logoOpacity.value = withSequence(
-        withTiming(1, { duration: 0 }),
-        withDelay(
-          150,
-          withTiming(0, { duration: 400, easing: Easing.in(Easing.cubic) }, () => {
-            runOnJS(tryNavigate)();
-          }),
-        ),
-      );
-    }, MIN_DISPLAY_MS);
+    // 3. Headline Slide-Up
+    headlineOpacity.value = withDelay(
+      300,
+      withTiming(1, { duration: 650, easing: Easing.out(Easing.cubic) })
+    );
+    headlineTranslateY.value = withDelay(
+      300,
+      withTiming(0, { duration: 650, easing: Easing.out(Easing.cubic) })
+    );
 
-    return () => clearTimeout(timer);
+    // 4. Subtitle Fade-In
+    subtitleOpacity.value = withDelay(
+      450,
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) })
+    );
+    subtitleTranslateY.value = withDelay(
+      450,
+      withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) })
+    );
+
+    // 5. CTA Button Entrance with smooth scale
+    ctaOpacity.value = withDelay(
+      600,
+      withTiming(1, { duration: 550, easing: Easing.out(Easing.cubic) })
+    );
+    ctaScale.value = withDelay(
+      600,
+      withTiming(1, { duration: 550, easing: Easing.out(Easing.back(1.4)) })
+    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
-    transform: [{ translateY: logoTranslateY.value }],
+  const handleGetStarted = () => {
+    const isAuth = restoreResult.current === true;
+    navigateToApp(isAuth);
+  };
+
+  const handlePressIn = () => {
+    pressScale.value = withTiming(0.96, { duration: 120 });
+  };
+
+  const handlePressOut = () => {
+    pressScale.value = withTiming(1, { duration: 160 });
+  };
+
+  // Animated styles
+  const bgAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: bgOpacity.value,
   }));
 
-  const taglineStyle = useAnimatedStyle(() => ({
-    opacity: taglineOpacity.value,
+  const topBrandAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: topBrandOpacity.value,
+    transform: [{ translateY: topBrandTranslateY.value }],
   }));
 
-  const accentStyle = useAnimatedStyle(() => ({
-    opacity: accentOpacity.value,
-    transform: [{ scaleX: accentWidth.value }],
+  const headlineAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headlineOpacity.value,
+    transform: [{ translateY: headlineTranslateY.value }],
+  }));
+
+  const subtitleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+    transform: [{ translateY: subtitleTranslateY.value }],
+  }));
+
+  const ctaAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: ctaOpacity.value,
+    transform: [{ scale: ctaScale.value * pressScale.value }],
   }));
 
   return (
-    <AuthBackground overlayOpacity={0.88}>
-      <View style={styles.container}>
-        {/* Brand Reveal Content */}
-        <View style={styles.content}>
-          <Animated.View style={[styles.logoBlock, logoStyle]}>
-            {/* Top Accent Indicators */}
-            <View style={styles.dotRow}>
-              <View style={styles.dot} />
-              <View style={[styles.dot, styles.dotLarge]} />
-              <View style={styles.dot} />
-            </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-            {/* Brand Title */}
+      {/* Cinematic Car-Wash Background Image with Opacity Fade */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, bgAnimatedStyle]}>
+        <ImageBackground
+          source={SPLASH_BG_IMAGE}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        >
+          {/* Seamless Full-Screen Multi-Stop Linear Gradient Scrim */}
+          <Svg
+            height="100%"
+            width="100%"
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
+          >
+            <Defs>
+              <LinearGradient id="splashGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <Stop offset="0%" stopColor="#080B10" stopOpacity="0.75" />
+                <Stop offset="20%" stopColor="#080B10" stopOpacity="0.25" />
+                <Stop offset="45%" stopColor="#080B10" stopOpacity="0.35" />
+                <Stop offset="65%" stopColor="#080B10" stopOpacity="0.75" />
+                <Stop offset="82%" stopColor="#080B10" stopOpacity="0.95" />
+                <Stop offset="100%" stopColor="#080B10" stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashGradient)" />
+          </Svg>
+        </ImageBackground>
+      </Animated.View>
+
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        {/* ============================================================ */}
+        {/* ZONE A: TOP BRAND AREA                                       */}
+        {/* ============================================================ */}
+        <Animated.View style={[styles.topBrandContainer, topBrandAnimatedStyle]}>
+          <View style={styles.brandPill}>
+            <Droplets size={13} color={Colors.cyanBlue} />
+            <AppText variant="caption" weight="bold" color={Colors.textPrimary} style={styles.brandPillText}>
+              THE BLACK WASH
+            </AppText>
+            <View style={styles.brandDot} />
+            <AppText variant="caption" color={Colors.cyanBlue} style={styles.taglineText}>
+              DOORSTEP CAR CARE
+            </AppText>
+          </View>
+        </Animated.View>
+
+        {/* ============================================================ */}
+        {/* ZONE B: MAIN CINEMATIC VISUAL SPACER                          */}
+        {/* ============================================================ */}
+        <View style={styles.visualSpacer} />
+
+        {/* ============================================================ */}
+        {/* ZONE C: BOTTOM CONTENT + CTA                                 */}
+        {/* ============================================================ */}
+        <View style={[styles.bottomContentCard, isSmallScreen && styles.bottomContentCardSmall]}>
+          {/* Dispatch Badge */}
+          <Animated.View style={[styles.sparkleBadgeRow, headlineAnimatedStyle]}>
+            <View style={styles.sparkleBadge}>
+              <Sparkles size={11} color={Colors.cyanBlue} />
+              <AppText variant="caption" weight="bold" color={Colors.cyanBlue} style={styles.sparkleBadgeText}>
+                HAZARIBAGH DISPATCH
+              </AppText>
+            </View>
+          </Animated.View>
+
+          {/* Main Headline */}
+          <Animated.View style={headlineAnimatedStyle}>
             <AppText
               variant="h1"
               weight="bold"
-              color={Colors.white}
-              center
-              style={styles.brandName}
+              color={Colors.textPrimary}
+              style={[styles.headlineTitle, isSmallScreen && styles.headlineTitleSmall]}
             >
-              THE BLACK WASH
+              Your Car.{'\n'}
+              <AppText
+                variant="h1"
+                weight="bold"
+                color={Colors.cyanBlue}
+                style={[styles.headlineAccent, isSmallScreen && styles.headlineTitleSmall]}
+              >
+                Our Care.
+              </AppText>
             </AppText>
-
-            {/* Cyan Accent Bar */}
-            <Animated.View style={[styles.accentLine, accentStyle]} />
           </Animated.View>
 
-          {/* Subtitle / Tagline */}
-          <Animated.View style={[styles.taglineBlock, taglineStyle]}>
+          {/* Supporting Subtitle */}
+          <Animated.View style={subtitleAnimatedStyle}>
             <AppText
-              variant="caption"
-              weight="medium"
-              color={Colors.cyanBlue}
-              center
-              style={styles.tagline}
+              variant="body"
+              color={Colors.textSecondary}
+              style={[styles.subtitleText, isSmallScreen && styles.subtitleTextSmall]}
             >
-              PREMIUM DOORSTEP CAR CARE
+              Premium doorstep car care, made effortless.
+            </AppText>
+          </Animated.View>
+
+          {/* Premium CTA Button */}
+          <Animated.View style={[styles.ctaWrapper, ctaAnimatedStyle]}>
+            <TouchableOpacity
+              style={styles.getStartedButton}
+              onPress={handleGetStarted}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              activeOpacity={0.92}
+              accessibilityRole="button"
+              accessibilityLabel="Get Started"
+            >
+              <AppText variant="body" weight="bold" color={Colors.primaryBlack} style={styles.getStartedText}>
+                Get Started
+              </AppText>
+              <View style={styles.arrowCircle}>
+                <ArrowRight size={16} color={Colors.primaryBlack} strokeWidth={2.2} />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Subtle Delivery Note */}
+          <Animated.View style={subtitleAnimatedStyle}>
+            <AppText variant="caption" color={Colors.textMuted} center style={styles.footerText}>
+              Doorstep detailing & wash delivered at your location
             </AppText>
           </Animated.View>
         </View>
-
-        {/* Bottom Location Indicator */}
-        <View style={styles.footer}>
-          <AppText variant="overline" color="rgba(255, 255, 255, 0.35)" center>
-            Hazaribagh · Jharkhand · India
-          </AppText>
-        </View>
-      </View>
-    </AuthBackground>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: Colors.primaryBlack,
   },
-  content: {
+  backgroundImage: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing['3xl'],
-    gap: Spacing.lg,
+    width: '100%',
+    height: '100%',
   },
-  logoBlock: {
-    alignItems: 'center',
-    gap: Spacing.md,
+  safeArea: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
   },
-  dotRow: {
+  topBrandContainer: {
+    alignItems: 'center',
+    paddingTop: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  brandPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
-  },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: Colors.cyanBlue,
-    opacity: 0.6,
-  },
-  dotLarge: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    opacity: 1,
+    backgroundColor: 'rgba(16, 25, 35, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.28)',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    gap: 6,
     shadowColor: Colors.cyanBlue,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 3,
   },
-  brandName: {
-    letterSpacing: 5,
-    fontSize: FontSize['4xl'],
+  brandPillText: {
+    letterSpacing: 1.5,
+    fontSize: 11,
   },
-  accentLine: {
-    height: 2.5,
-    width: 140,
-    backgroundColor: Colors.cyanBlue,
+  brandDot: {
+    width: 3,
+    height: 3,
     borderRadius: 1.5,
-    transformOrigin: 'left',
+    backgroundColor: Colors.cyanBlue,
+  },
+  taglineText: {
+    letterSpacing: 1.2,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  visualSpacer: {
+    flex: 1,
+    minHeight: 40,
+  },
+  bottomContentCard: {
+    gap: Spacing.md,
+    paddingBottom: Spacing.xl + 10,
+  },
+  bottomContentCardSmall: {
+    gap: Spacing.sm,
+    paddingBottom: Spacing.lg,
+  },
+  sparkleBadgeRow: {
+    alignSelf: 'flex-start',
+  },
+  sparkleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 207, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.28)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    gap: 4,
+  },
+  sparkleBadgeText: {
+    fontSize: 10,
+    letterSpacing: 0.6,
+  },
+  headlineTitle: {
+    fontSize: 34,
+    lineHeight: 40,
+    letterSpacing: -0.8,
+  },
+  headlineTitleSmall: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  headlineAccent: {
+    fontSize: 34,
+    lineHeight: 40,
+  },
+  subtitleText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: Colors.textSecondary,
+  },
+  subtitleTextSmall: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  ctaWrapper: {
+    marginTop: Spacing.xs,
+  },
+  getStartedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.cyanBlue,
+    height: 54,
+    borderRadius: 27,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
     shadowColor: Colors.cyanBlue,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  taglineBlock: {
-    marginTop: Spacing.sm,
+  getStartedText: {
+    fontSize: FontSize.lg,
+    letterSpacing: 0.3,
   },
-  tagline: {
-    letterSpacing: 3,
-    fontSize: FontSize.xs,
+  arrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(8, 11, 16, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  footer: {
-    paddingBottom: Spacing['3xl'],
+  footerText: {
+    fontSize: 11,
+    letterSpacing: 0.2,
+    marginTop: 2,
   },
 });

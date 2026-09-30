@@ -15,15 +15,5 @@ export const FALLBACK_SERVICES = [
     price: 519,
     duration_minutes: 45,
     is_active: true,
-  },
-  {
-    id: 2,
-    name: 'The Black Wash Signature',
-    slug: 'the-black-wash-signature',
-    short_description: 'Complete interior + exterior foam wash, ceramic spray wax, engine bay rinse & polish.',
-    description: 'Comprehensive doorstep car detailing: snow foam wash, underbody rinse, machine wax coat, interior deep clean, and engine bay cleaning.',
-    price: 899,
-    duration_minutes: 120,
-    is_active: true,
-  },
+  }
 ];

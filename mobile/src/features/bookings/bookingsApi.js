@@ -34,14 +34,6 @@ export const bookingsApi = baseApi.injectEndpoints({
     }),
 
     /**
-     * GET /api/bookings/{id}/
-     */
-    getBooking: builder.query({
-      query: (id) => `bookings/${id}/`,
-      providesTags: (result, error, id) => [{ type: 'Bookings', id }],
-    }),
-
-    /**
      * POST /api/bookings/
      * Registers a new doorstep wash booking.
      */
@@ -59,44 +51,11 @@ export const bookingsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: [{ type: 'Bookings', id: 'LIST' }],
     }),
-
-    /**
-     * POST /api/bookings/price-preview/
-     */
-    previewPrice: builder.mutation({
-      query: (data) => ({
-        url: 'bookings/price-preview/',
-        method: 'POST',
-        body: {
-          service_id: data.service_id,
-          address: data.address || '',
-          booking_date: data.booking_date,
-        },
-      }),
-    }),
-
-    /**
-     * POST /api/bookings/{id}/cancel/
-     */
-    cancelBooking: builder.mutation({
-      query: ({ id, reason = 'Cancelled by customer' }) => ({
-        url: `bookings/${id}/cancel/`,
-        method: 'POST',
-        body: { reason },
-      }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Bookings', id },
-        { type: 'Bookings', id: 'LIST' },
-      ],
-    }),
   }),
   overrideExisting: true,
 });
 
 export const {
   useGetBookingsQuery,
-  useGetBookingQuery,
   useCreateBookingMutation,
-  usePreviewPriceMutation,
-  useCancelBookingMutation,
 } = bookingsApi;

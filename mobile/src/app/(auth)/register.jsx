@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,32 +7,41 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from 'lucide-react-native';
+import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react-native';
 
-import { Colors, Spacing, Radius, Shadows, FontSize } from '@/theme';
+import { Colors, Spacing, Radius, Shadows } from '@/theme';
 import AppText from '@/components/ui/AppText';
 import AppButton from '@/components/ui/AppButton';
 import AppInput from '@/components/ui/AppInput';
 import {
-  AuthBackground,
   AuthHeader,
   AuthErrorMessage,
 } from '@/features/auth/components';
 import { registerSchema } from '@/features/auth/validation/registerSchema';
 import { useRegister } from '@/features/auth/hooks/useRegister';
+import { openLegalUrl, LEGAL_URLS } from '@/constants/legal';
 
 /**
  * Register Screen
  *
  * Requirements:
- * - Full-screen cinematic backdrop with dark scrim overlay
- * - Poppins typography across every text element
- * - Frosted-glass form container
+ * - Solid premium dark branding matching Home screen (#080B10 / #101923)
+ * - Rounded AuthHeader with brand badge & back action
+ * - Coordinated Reanimated entrance animations (header drop-in, form card slide-up)
+ * - Dark surface form card (#121C27) with border (#263442)
  * - Minimal fields matching backend: fullname, email, password, confirmPassword
  * - React Hook Form + Zod schema validation
  * - Clear inline validation & API error handling
@@ -43,6 +52,41 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const { submit, isLoading, apiError, clearError } = useRegister();
+
+  // Entrance animation values
+  const headerOpacity = useSharedValue(0);
+  const headerTranslateY = useSharedValue(-12);
+  const formOpacity = useSharedValue(0);
+  const formTranslateY = useSharedValue(18);
+  const bottomOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    // 1. Header entrance
+    headerOpacity.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.cubic) });
+    headerTranslateY.value = withTiming(0, { duration: 450, easing: Easing.out(Easing.cubic) });
+
+    // 2. Form card slide-up
+    formOpacity.value = withDelay(150, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    formTranslateY.value = withDelay(150, withSpring(0, { damping: 14, stiffness: 220 }));
+
+    // 3. Bottom switch prompt
+    bottomOpacity.value = withDelay(300, withTiming(1, { duration: 450 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const animatedHeaderStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+
+  const animatedFormStyle = useAnimatedStyle(() => ({
+    opacity: formOpacity.value,
+    transform: [{ translateY: formTranslateY.value }],
+  }));
+
+  const animatedBottomStyle = useAnimatedStyle(() => ({
+    opacity: bottomOpacity.value,
+  }));
 
   const {
     control,
@@ -75,9 +119,20 @@ export default function RegisterScreen() {
   };
 
   return (
-    <AuthBackground overlayOpacity={0.82}>
+    <View style={styles.root}>
+      <StatusBar style="light" />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <StatusBar style="light" />
+        {/* Animated Rounded Top Auth Header with Back Button */}
+        <Animated.View style={animatedHeaderStyle}>
+          <AuthHeader
+            showBack
+            onBack={() => router.back()}
+            badge="THE BLACK WASH · NEW CUSTOMER"
+            title="Create Account"
+            subtitle="Get premium doorstep car detailing at your location"
+          />
+        </Animated.View>
+
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -88,29 +143,8 @@ export default function RegisterScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Back Button */}
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-              accessibilityLabel="Go back to login"
-              accessibilityRole="button"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <ArrowLeft size={16} color={Colors.cyanBlue} />
-              <AppText variant="bodyMedium" weight="medium" color={Colors.cyanBlue}>
-                Back to Sign In
-              </AppText>
-            </TouchableOpacity>
-
-            {/* Header */}
-            <AuthHeader
-              badge="THE BLACK WASH · NEW CUSTOMER"
-              title="Create Account"
-              subtitle="Get premium doorstep car detailing at your location"
-            />
-
-            {/* Frosted Glass Form Card */}
-            <View style={styles.formCard}>
+            {/* Animated Premium Dark Surface Form Card */}
+            <Animated.View style={[styles.formCard, animatedFormStyle]}>
               {/* Full Name Input */}
               <Controller
                 control={control}
@@ -134,7 +168,7 @@ export default function RegisterScreen() {
                     returnKeyType="next"
                     disabled={isLoading}
                     leftIcon={<User size={18} color={Colors.cyanBlue} strokeWidth={1.8} />}
-                    inputContainerStyle={styles.glassInputContainer}
+                    inputContainerStyle={styles.darkInputContainer}
                     inputStyle={styles.inputTextDark}
                   />
                 )}
@@ -164,7 +198,7 @@ export default function RegisterScreen() {
                     returnKeyType="next"
                     disabled={isLoading}
                     leftIcon={<Mail size={18} color={Colors.cyanBlue} strokeWidth={1.8} />}
-                    inputContainerStyle={styles.glassInputContainer}
+                    inputContainerStyle={styles.darkInputContainer}
                     inputStyle={styles.inputTextDark}
                   />
                 )}
@@ -178,7 +212,7 @@ export default function RegisterScreen() {
                   <AppInput
                     label="Password"
                     labelColor={Colors.textSecondary}
-                    placeholder="Min. 8 characters"
+                    placeholder="Create a strong password"
                     value={value}
                     onChangeText={(v) => {
                       clearError();
@@ -207,7 +241,7 @@ export default function RegisterScreen() {
                         )}
                       </TouchableOpacity>
                     }
-                    inputContainerStyle={styles.glassInputContainer}
+                    inputContainerStyle={styles.darkInputContainer}
                     inputStyle={styles.inputTextDark}
                   />
                 )}
@@ -251,13 +285,13 @@ export default function RegisterScreen() {
                         )}
                       </TouchableOpacity>
                     }
-                    inputContainerStyle={styles.glassInputContainer}
+                    inputContainerStyle={styles.darkInputContainer}
                     inputStyle={styles.inputTextDark}
                   />
                 )}
               />
 
-              {/* API Error Banner */}
+              {/* API / Network Error Banner */}
               {apiError && (
                 <AuthErrorMessage
                   message={apiError}
@@ -265,6 +299,35 @@ export default function RegisterScreen() {
                   onRetry={apiError.includes('Network') ? handleRetry : undefined}
                 />
               )}
+
+              {/* Legal Terms & Privacy Policy Notice */}
+              <View style={styles.legalNoticeContainer}>
+                <AppText variant="caption" color={Colors.textMuted} center style={styles.legalNoticeText}>
+                  By creating an account, you agree to our{' '}
+                  <AppText
+                    variant="caption"
+                    weight="semiBold"
+                    color={Colors.cyanBlue}
+                    onPress={() => openLegalUrl(LEGAL_URLS.terms)}
+                    accessibilityRole="link"
+                    accessibilityLabel="Open Terms of Service"
+                  >
+                    Terms of Service
+                  </AppText>{' '}
+                  and{' '}
+                  <AppText
+                    variant="caption"
+                    weight="semiBold"
+                    color={Colors.cyanBlue}
+                    onPress={() => openLegalUrl(LEGAL_URLS.privacyPolicy)}
+                    accessibilityRole="link"
+                    accessibilityLabel="Open Privacy Policy"
+                  >
+                    Privacy Policy
+                  </AppText>
+                  .
+                </AppText>
+              </View>
 
               {/* Submit CTA */}
               <AppButton
@@ -278,92 +341,83 @@ export default function RegisterScreen() {
               >
                 Create Account
               </AppButton>
+            </Animated.View>
 
-              {/* Subtext notice */}
-              <View style={styles.otpNotice}>
-                <AppText variant="caption" color={Colors.textSecondary} center>
-                  A 6-digit verification code will be sent to your email.
-                </AppText>
-              </View>
-            </View>
-
-            {/* Footer Navigation */}
-            <View style={styles.footer}>
-              <AppText variant="body" color={Colors.textSecondary}>
+            {/* Bottom Login Switch Prompt */}
+            <Animated.View style={[styles.bottomSwitchRow, animatedBottomStyle]}>
+              <AppText variant="bodySmall" color={Colors.textSecondary}>
                 Already have an account?{' '}
               </AppText>
               <TouchableOpacity
-                onPress={() => router.replace('/(auth)/login')}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                accessibilityRole="link"
-                accessibilityLabel="Log in"
+                onPress={() => router.push('/(auth)/login')}
+                disabled={isLoading}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Navigate to Login"
               >
-                <AppText variant="bodyMedium" weight="semiBold" color={Colors.cyanBlue}>
-                  Sign in
+                <AppText variant="bodySmall" weight="bold" color={Colors.cyanBlue}>
+                  Sign In →
                 </AppText>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </AuthBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: Colors.primaryBlack,
+  },
   safe: {
     flex: 1,
   },
-  flex: { flex: 1 },
-  scroll: { flex: 1 },
+  flex: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing['3xl'],
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xs,
-    alignSelf: 'flex-start',
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing['2xl'],
+    gap: Spacing.lg,
   },
   formCard: {
-    backgroundColor: 'rgba(16, 25, 35, 0.76)',
+    backgroundColor: Colors.surfaceCard,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    padding: Spacing.xl,
+    borderColor: Colors.border,
+    padding: Spacing.lg,
     gap: Spacing.lg,
-    ...Shadows.lg,
+    ...Shadows.card,
   },
-  glassInputContainer: {
-    backgroundColor: 'rgba(8, 11, 16, 0.65)',
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+  darkInputContainer: {
+    backgroundColor: Colors.surfaceElevated,
+    borderColor: Colors.border,
   },
   inputTextDark: {
-    color: Colors.white,
-    fontSize: FontSize.md,
+    color: Colors.textPrimary,
+  },
+  legalNoticeContainer: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+  },
+  legalNoticeText: {
+    lineHeight: 18,
   },
   submitButton: {
     marginTop: Spacing.xs,
-    shadowColor: Colors.cyanBlue,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  otpNotice: {
-    marginTop: -2,
-    paddingHorizontal: Spacing.sm,
-  },
-  footer: {
+  bottomSwitchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: Spacing['2xl'],
-    paddingBottom: Spacing.md,
-    flexWrap: 'wrap',
+    paddingVertical: Spacing.sm,
   },
 });

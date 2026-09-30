@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, ImageBackground } from 'react-native';
+import { StyleSheet, ImageBackground } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 import { Colors } from '@/theme';
 
@@ -10,16 +11,14 @@ const AUTH_BG_IMAGE = require('@/assets/images/login-register.png');
  * AuthBackground
  *
  * Full-screen wrapper using the authentic "The Black Wash" vehicle branding background.
- * Applies a cinematic dark scrim overlay to ensure maximum text contrast,
- * readable form fields, and accessibility on all device dimensions.
+ * Applies a smooth, multi-stop SVG linear gradient overlay to ensure seamless transitions,
+ * crystal clear text contrast, and no harsh visual cutoffs.
  *
  * @param {React.ReactNode} children
- * @param {number} overlayOpacity - default 0.82
  * @param {object} style - optional container style
  */
 const AuthBackground = ({
   children,
-  overlayOpacity = 0.84,
   style,
 }) => {
   return (
@@ -28,16 +27,24 @@ const AuthBackground = ({
       style={[styles.background, style]}
       resizeMode="cover"
     >
-      {/* Cinematic dark overlay to guarantee contrast & readability */}
-      <View
-        style={[
-          styles.overlay,
-          { backgroundColor: `rgba(8, 11, 16, ${overlayOpacity})` },
-        ]}
-      />
-      {/* Subtle top/bottom radial gradient approximation for depth */}
-      <View style={styles.topVignette} pointerEvents="none" />
-      <View style={styles.bottomVignette} pointerEvents="none" />
+      {/* Seamless Full-Screen Multi-Stop Linear Gradient Scrim */}
+      <Svg
+        height="100%"
+        width="100%"
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      >
+        <Defs>
+          <LinearGradient id="authBgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0%" stopColor="#080B10" stopOpacity="0.75" />
+            <Stop offset="25%" stopColor="#080B10" stopOpacity="0.40" />
+            <Stop offset="55%" stopColor="#080B10" stopOpacity="0.75" />
+            <Stop offset="80%" stopColor="#080B10" stopOpacity="0.95" />
+            <Stop offset="100%" stopColor="#080B10" stopOpacity="1" />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#authBgGradient)" />
+      </Svg>
       {children}
     </ImageBackground>
   );
@@ -47,25 +54,6 @@ const styles = StyleSheet.create({
   background: {
     flex: 1,
     backgroundColor: Colors.primaryBlack,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  topVignette: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 160,
-    backgroundColor: 'rgba(8, 11, 16, 0.45)',
-  },
-  bottomVignette: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    backgroundColor: 'rgba(8, 11, 16, 0.65)',
   },
 });
 

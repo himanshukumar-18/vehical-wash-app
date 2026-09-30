@@ -34,12 +34,12 @@ import {
 } from '@/components';
 import { useGetServicesQuery } from '@/features/services/servicesApi';
 import { useGetVehiclesQuery } from '@/features/vehicles/vehiclesApi';
-import { useCreateBookingMutation } from '@/features/bookings/bookingsApi';
 import { useAppSelector } from '@/hooks/useAppSelector';
 import { selectCurrentUser } from '@/features/auth/authSlice';
 import {
   formatBookingWhatsAppMessage,
   openWhatsApp,
+  BUSINESS_CONTACT,
 } from '@/constants/contact';
 import { FALLBACK_SERVICES } from '@/constants/services';
 import AddVehicleModal from '@/features/vehicles/components/AddVehicleModal';
@@ -84,13 +84,13 @@ export default function BookingScreen() {
   const { data: services } = useGetServicesQuery();
   const { data: vehicles, refetch: refetchVehicles } =
     useGetVehiclesQuery(undefined, { skip: !currentUser });
-  const [createBooking, { isLoading: isSubmitting }] = useCreateBookingMutation();
 
   const [address, setAddress] = React.useState('');
   const [googleMapsUrl, setGoogleMapsUrl] = React.useState('');
   const [customerPhone, setCustomerPhone] = React.useState(currentUser?.phone_number || '');
   const [customerNote, setCustomerNote] = React.useState('');
   const [isAddVehicleOpen, setIsAddVehicleOpen] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errors, setErrors] = React.useState({});
 
   // Explicitly user-controlled selections (null = not yet chosen by user)
@@ -149,55 +149,41 @@ export default function BookingScreen() {
   };
 
   const handleConfirmAndWhatsApp = async () => {
-    if (isSubmitting) return; // Prevent duplicate submissions
+    if (isSubmitting) return;
 
     if (!validate()) {
       Alert.alert('Incomplete Details', 'Please fill in all required fields to proceed.');
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
-      // Format complete address payload
-      let completeAddress = address.trim();
-      if (googleMapsUrl.trim()) {
-        completeAddress += `\n📍 Maps: ${googleMapsUrl.trim()}`;
-      }
-      if (customerPhone.trim()) {
-        completeAddress += ` (Phone: ${customerPhone.trim()})`;
-      }
+      // Build a local booking reference so the owner can track conversations
+      const now = new Date();
+      const localRef = `TBW-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
 
-      const payload = {
-        vehicle_id: selectedVehicleId,
-        service_id: selectedServiceId,
-        booking_date: effectiveDate,
-        address: completeAddress,
-        customer_note: customerNote.trim(),
-      };
-
-      // 1. Save booking in backend first
-      const result = await createBooking(payload).unwrap();
-
-      // 2. Format WhatsApp message with the actual backend booking number
+      // Format the complete WhatsApp message directly — no backend needed
       const whatsappMsg = formatBookingWhatsAppMessage({
-        bookingNumber: result.booking_number,
+        bookingNumber: localRef,
         vehicle: selectedVehicle,
         service: selectedService,
         bookingDate: effectiveDate,
         address: address.trim(),
         googleMapsUrl: googleMapsUrl.trim(),
-        customerName: currentUser?.fullname,
+        customerName: currentUser?.fullname || currentUser?.name || currentUser?.username,
         customerPhone: customerPhone.trim(),
         customerNote: customerNote.trim(),
-        totalPrice: result.total_price || selectedService?.price,
+        totalPrice: selectedService?.price,
       });
 
-      // 3. Open WhatsApp for dispatch handoff
+      // Open WhatsApp with the formatted booking message
       await openWhatsApp(whatsappMsg);
 
-      // 4. Alert user with next steps and navigation to My Bookings
+      // After opening WhatsApp, let user know next steps
       Alert.alert(
-        'Booking Request Recorded 📝',
-        `Booking #${result.booking_number} is saved in pending status. Send the WhatsApp message to our team to confirm your doorstep slot.`,
+        'Booking Sent via WhatsApp 📲',
+        `Your booking request has been prepared and sent to The Black Wash on WhatsApp.\n\nRef: ${localRef}\n\nOur team will confirm your doorstep slot shortly.`,
         [
           {
             text: 'Resend WhatsApp',
@@ -205,20 +191,19 @@ export default function BookingScreen() {
             onPress: () => openWhatsApp(whatsappMsg),
           },
           {
-            text: 'View My Bookings',
-            style: 'default',
-            onPress: () => router.replace('/(tabs)/bookings'),
+            text: 'Done',
+            style: 'cancel',
+            onPress: () => router.back(),
           },
         ]
       );
-    } catch (err) {
-      const errorMsg =
-        err?.data?.message ||
-        err?.data?.detail ||
-        (typeof err?.data === 'string' ? err.data : null) ||
-        'Unable to record your booking. Please check your details and try again.';
-
-      Alert.alert('Booking Error', errorMsg);
+    } catch {
+      Alert.alert(
+        'Could Not Open WhatsApp',
+        `Please contact us directly at ${BUSINESS_CONTACT.whatsappNumber} on WhatsApp with your booking details.`
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -614,8 +599,18 @@ export default function BookingScreen() {
             </View>
           </AppCard>
 
-          {/* CTA: Book & Confirm on WhatsApp */}
+          {/* CTA: Send Booking to WhatsApp */}
           <View style={styles.ctaContainer}>
+            {/* WhatsApp label banner */}
+            <View style={styles.whatsappBanner}>
+              <AppText variant="caption" color={Colors.textMuted} style={styles.whatsappBannerText}>
+                📲 Your booking details will be sent directly to
+              </AppText>
+              <AppText variant="caption" weight="bold" color={Colors.success}>
+                The Black Wash on WhatsApp
+              </AppText>
+            </View>
+
             <AppButton
               variant="primary"
               size="lg"
@@ -624,11 +619,11 @@ export default function BookingScreen() {
               onPress={handleConfirmAndWhatsApp}
               rightIcon={<ArrowRight size={16} color={Colors.primaryBlack} />}
             >
-              Book & Confirm on WhatsApp
+              {isSubmitting ? 'Opening WhatsApp...' : 'Send Booking via WhatsApp'}
             </AppButton>
 
             <AppText variant="caption" color={Colors.textMuted} center style={styles.ctaDisclaimer}>
-              Cash or UPI payment upon completion of wash at your doorstep.
+              No payment now. Cash or UPI on doorstep delivery.
             </AppText>
           </View>
         </ScrollView>
@@ -854,6 +849,18 @@ const styles = StyleSheet.create({
   ctaContainer: {
     gap: Spacing.xs,
     marginTop: Spacing.xs,
+  },
+  whatsappBanner: {
+    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.22)',
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    alignItems: 'center',
+    gap: 2,
+  },
+  whatsappBannerText: {
+    textAlign: 'center',
   },
   ctaDisclaimer: {
     fontSize: 11,
