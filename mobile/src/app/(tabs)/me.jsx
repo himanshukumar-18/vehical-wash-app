@@ -7,6 +7,8 @@ import {
   Alert,
   RefreshControl,
   useWindowDimensions,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Animated, {
@@ -108,9 +110,10 @@ export default function MeScreen() {
   const [updateVehicle] = useUpdateVehicleMutation();
   const [logoutMutation, { isLoading: isLoggingOut }] = useLogoutMutation();
 
-  // Modals
+  // Modals & local state
   const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [deletingVehicleId, setDeletingVehicleId] = useState(null);
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -157,13 +160,62 @@ export default function MeScreen() {
   const handleSetDefault = async (vehicle) => {
     try {
       await updateVehicle({ id: vehicle.id, is_default: true }).unwrap();
-      Alert.alert('Default Updated', `${vehicle.brand} ${vehicle.model} set as default.`);
+      refetchVehicles();
+      if (Platform.OS === 'web') {
+        window.alert(`${vehicle.brand} ${vehicle.model} set as default.`);
+      } else {
+        Alert.alert('Default Updated', `${vehicle.brand} ${vehicle.model} set as default.`);
+      }
     } catch {
-      Alert.alert('Error', 'Could not update default vehicle.');
+      if (Platform.OS === 'web') {
+        window.alert('Could not update default vehicle.');
+      } else {
+        Alert.alert('Error', 'Could not update default vehicle.');
+      }
     }
   };
 
   const handleDeleteVehicle = (vehicle) => {
+    if (!vehicle || !vehicle.id) return;
+
+    const executeDelete = async () => {
+      setDeletingVehicleId(vehicle.id);
+      try {
+        await deleteVehicle(vehicle.id).unwrap();
+        await refetchVehicles();
+        if (Platform.OS === 'web') {
+          window.alert('Vehicle removed from your garage.');
+        } else {
+          Alert.alert('Removed', 'Vehicle removed from your garage.');
+        }
+      } catch (err) {
+        const msg =
+          err?.data?.message ||
+          err?.data?.detail ||
+          err?.error ||
+          'Could not remove vehicle. Please try again.';
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${msg}`);
+        } else {
+          Alert.alert('Error', msg);
+        }
+      } finally {
+        setDeletingVehicleId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined' &&
+        window.confirm(
+          `Remove ${vehicle.brand} ${vehicle.model} (${vehicle.registration_number}) from your garage?`
+        );
+      if (confirmed) {
+        executeDelete();
+      }
+      return;
+    }
+
     Alert.alert(
       'Remove Vehicle?',
       `Remove ${vehicle.brand} ${vehicle.model} (${vehicle.registration_number}) from your garage?`,
@@ -172,20 +224,38 @@ export default function MeScreen() {
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteVehicle(vehicle.id).unwrap();
-              Alert.alert('Removed', 'Vehicle removed from your garage.');
-            } catch {
-              Alert.alert('Error', 'Could not remove vehicle.');
-            }
-          },
+          onPress: executeDelete,
         },
       ]
     );
   };
 
   const handleLogout = () => {
+    const executeLogout = async () => {
+      try {
+        const refreshToken = await getRefreshToken();
+        if (refreshToken) {
+          await logoutMutation({ refresh: refreshToken }).unwrap().catch(() => {});
+        }
+      } catch {
+        // Proceed with local logout regardless
+      } finally {
+        await clearTokens();
+        dispatch(clearCredentials());
+        router.replace('/(auth)/login');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined' &&
+        window.confirm('Are you sure you want to sign out of The Black Wash?');
+      if (confirmed) {
+        executeLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out of The Black Wash?',
@@ -194,20 +264,7 @@ export default function MeScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const refreshToken = await getRefreshToken();
-              if (refreshToken) {
-                await logoutMutation({ refresh: refreshToken }).unwrap().catch(() => { });
-              }
-            } catch {
-              // Proceed with local logout regardless
-            } finally {
-              await clearTokens();
-              dispatch(clearCredentials());
-              router.replace('/(auth)/login');
-            }
-          },
+          onPress: executeLogout,
         },
       ]
     );
@@ -433,12 +490,21 @@ export default function MeScreen() {
 
                         <TouchableOpacity
                           onPress={() => handleDeleteVehicle(v)}
-                          style={styles.deleteVehicleBtn}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          disabled={deletingVehicleId === v.id}
+                          style={[
+                            styles.deleteVehicleBtn,
+                            deletingVehicleId === v.id && styles.deleteVehicleBtnDisabled,
+                          ]}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                           accessibilityRole="button"
-                          accessibilityLabel={`Delete ${v.brand}`}
+                          accessibilityLabel={`Delete ${v.brand} ${v.model}`}
                         >
-                          <Trash2 size={15} color={Colors.error} />
+                          {deletingVehicleId === v.id ? (
+                            <ActivityIndicator size="small" color={Colors.error} />
+                          ) : (
+                            <Trash2 size={15} color={Colors.error} />
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -939,7 +1005,17 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   deleteVehicleBtn: {
-    padding: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(239, 68, 68, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteVehicleBtnDisabled: {
+    opacity: 0.5,
   },
   emptyGarageCard: {
     flexDirection: 'row',

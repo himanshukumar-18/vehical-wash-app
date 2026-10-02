@@ -47,7 +47,7 @@ export const vehiclesApi = baseApi.injectEndpoints({
           is_default: data.is_default ?? false,
         },
       }),
-      invalidatesTags: [{ type: 'Vehicles', id: 'LIST' }],
+      invalidatesTags: ['Vehicles', { type: 'Vehicles', id: 'LIST' }],
     }),
 
     /**
@@ -60,6 +60,7 @@ export const vehiclesApi = baseApi.injectEndpoints({
         body: patch,
       }),
       invalidatesTags: (result, error, { id }) => [
+        'Vehicles',
         { type: 'Vehicles', id },
         { type: 'Vehicles', id: 'LIST' },
       ],
@@ -73,7 +74,7 @@ export const vehiclesApi = baseApi.injectEndpoints({
         url: `vehicles/${id}/`,
         method: 'DELETE',
       }),
-      invalidatesTags: [{ type: 'Vehicles', id: 'LIST' }],
+      invalidatesTags: ['Vehicles', { type: 'Vehicles', id: 'LIST' }],
     }),
   }),
   overrideExisting: true,
