@@ -1,6 +1,6 @@
 /**
  * Profile API exports.
- * Profile endpoints (getProfile, updateProfile) are managed via authApi.
+ * Profile endpoints (GET/PATCH /api/auth/me/) are managed in authApi.
  */
 export {
   useGetProfileQuery,

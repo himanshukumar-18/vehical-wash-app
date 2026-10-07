@@ -1,61 +1,22 @@
+/**
+ * Bookings API — Local Stub
+ *
+ * There is currently no backend booking endpoint.
+ * All bookings are coordinated via WhatsApp (see src/constants/contact.js).
+ *
+ * This stub provides `useGetBookingsQuery` so that profile/history components
+ * render gracefully without network failures or missing imports.
+ */
 import { baseApi } from '@/store/api/baseApi';
 
-/**
- * Bookings API endpoints.
- * Requires JWT authentication.
- */
 export const bookingsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    /**
-     * GET /api/bookings/
-     * Returns the current customer's booking history with optional status filter.
-     */
     getBookings: builder.query({
-      query: (params) => ({
-        url: 'bookings/',
-        params: params?.status ? { status: params.status } : undefined,
-      }),
-      transformResponse: (response) => {
-        if (Array.isArray(response)) return response;
-        if (response && Array.isArray(response.results)) return response.results;
-        return [];
-      },
-      providesTags: (result) => {
-        const list = Array.isArray(result)
-          ? result
-          : result && Array.isArray(result.results)
-          ? result.results
-          : [];
-        return [
-          ...list.map(({ id }) => ({ type: 'Bookings', id })),
-          { type: 'Bookings', id: 'LIST' },
-        ];
-      },
-    }),
-
-    /**
-     * POST /api/bookings/
-     * Registers a new doorstep wash booking.
-     */
-    createBooking: builder.mutation({
-      query: (data) => ({
-        url: 'bookings/',
-        method: 'POST',
-        body: {
-          vehicle_id: data.vehicle_id,
-          service_id: data.service_id,
-          booking_date: data.booking_date,
-          address: data.address,
-          customer_note: data.customer_note || '',
-        },
-      }),
-      invalidatesTags: [{ type: 'Bookings', id: 'LIST' }],
+      queryFn: () => ({ data: [] }),
+      providesTags: [],
     }),
   }),
   overrideExisting: true,
 });
 
-export const {
-  useGetBookingsQuery,
-  useCreateBookingMutation,
-} = bookingsApi;
+export const { useGetBookingsQuery } = bookingsApi;

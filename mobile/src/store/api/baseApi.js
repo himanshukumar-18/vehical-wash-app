@@ -26,7 +26,8 @@ const rawBaseQuery = fetchBaseQuery({
 });
 
 /**
- * Enhanced baseQuery with automatic JWT token refresh on 401 / AUTHENTICATION_REQUIRED.
+ * Enhanced baseQuery with automatic JWT token refresh on 401.
+ * Refresh endpoint: POST /api/auth/refresh/
  */
 const baseQueryWithReauth = async (args, api, extraOptions) => {
   let result = await rawBaseQuery(args, api, extraOptions);
@@ -40,10 +41,10 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     const refreshToken = await getRefreshToken();
 
     if (refreshToken) {
-      // Attempt token refresh
+      // Attempt token refresh via Django SimpleJWT refresh endpoint
       const refreshResult = await rawBaseQuery(
         {
-          url: 'auth/token/refresh/',
+          url: 'auth/refresh/',
           method: 'POST',
           body: { refresh: refreshToken },
         },
@@ -51,12 +52,19 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
         extraOptions
       );
 
-      if (refreshResult.data && refreshResult.data.access) {
+      const access =
+        refreshResult.data?.access ||
+        refreshResult.data?.tokens?.access ||
+        refreshResult.data?.data?.access;
+      const refresh =
+        refreshResult.data?.refresh ||
+        refreshResult.data?.tokens?.refresh ||
+        refreshResult.data?.data?.refresh ||
+        refreshToken;
+
+      if (access) {
         // Save new access token (and new refresh token if rotated)
-        await saveTokens(
-          refreshResult.data.access,
-          refreshResult.data.refresh || refreshToken
-        );
+        await saveTokens(access, refresh);
 
         // Retry the original query with the refreshed access token
         result = await rawBaseQuery(args, api, extraOptions);
@@ -82,7 +90,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Auth', 'Profile', 'Vehicles', 'Services', 'Bookings'],
+  tagTypes: ['Auth', 'Profile', 'Vehicles', 'Services'],
   endpoints: () => ({}),
 });
 

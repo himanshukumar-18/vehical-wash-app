@@ -7,13 +7,10 @@ import { getAuthErrorMessage } from '../utils/authErrors';
  * useRegister
  *
  * Handles new account registration:
- *  1. POST /api/auth/register/ → { fullname, email, password }
- *  2. Response 201: { id, fullname, email }
+ *  1. POST /api/auth/register/ → { fullname, email, password, phone? }
+ *  2. Response 201: { success: true, message: "...", data: { email } }
  *  3. OTP is sent to the user's email by the backend.
  *  4. Call onSuccess(email) → navigate to OTP verification screen.
- *
- * NOTE: Registration does NOT authenticate the user.
- * The user must verify their OTP and then log in separately.
  *
  * @returns {{ submit, isLoading, apiError, clearError }}
  */
@@ -26,16 +23,24 @@ export const useRegister = () => {
       setApiError(null);
 
       try {
-        // Only send the 3 fields the backend expects
-        await registerMutation({
+        const payload = {
           fullname: formData.fullname.trim(),
           email: formData.email.toLowerCase().trim(),
           password: formData.password,
-        }).unwrap();
+          ...(formData.phone && formData.phone.trim()
+            ? { phone: formData.phone.trim() }
+            : {}),
+        };
+
+        const res = await registerMutation(payload).unwrap();
 
         // On success: OTP is being sent to formData.email by the backend.
-        // Navigate to OTP screen, passing the email for display and verification.
-        onSuccess?.(formData.email.toLowerCase().trim());
+        const registeredEmail =
+          res.data?.email ||
+          res.email ||
+          formData.email.toLowerCase().trim();
+
+        onSuccess?.(registeredEmail);
       } catch (err) {
         setApiError(getAuthErrorMessage(err));
       }
@@ -50,3 +55,5 @@ export const useRegister = () => {
     clearError: () => setApiError(null),
   };
 };
+
+export default useRegister;

@@ -6,11 +6,12 @@ import {
   Platform,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Mail } from 'lucide-react-native';
+import { Mail, Phone, RefreshCw } from 'lucide-react-native';
 
 import { Colors, Spacing, Radius, Shadows } from '@/theme';
 import AppText from '@/components/ui/AppText';
@@ -21,70 +22,187 @@ import {
   OtpInput,
 } from '@/features/auth/components';
 import { useOtpVerify } from '@/features/auth/hooks/useOtpVerify';
+import { useResendOtp } from '@/features/auth/hooks/useResendOtp';
+import { usePhoneAuth } from '@/features/auth/hooks/usePhoneAuth';
 
 /**
  * OTP Verification Screen
  *
- * Requirements:
- * - Solid premium dark branding matching Home screen (#080B10 / #101923)
- * - Rounded AuthHeader with brand badge & back action
- * - Dark surface form card (#121C27) with border (#263442)
- * - 6-digit segmented OTP input with auto-advance and clipboard paste
- * - Displays masked email destination & 10-minute expiry warning
- * - Handles attempt countdown & rate limit blocking
- * - On success: routes to Login with verified confirmation
+ * Supports:
+ * 1. Email OTP verification (`type: 'email'`)
+ * 2. Phone SMS OTP verification (`type: 'phone'`)
+ * 3. 6-digit segmented OTP input with auto-advance and clipboard paste
+ * 4. Resend code with 60-second cooldown timer
+ * 5. Attempt countdown & rate limit handling
  */
 const MAX_ATTEMPTS = 5;
 
 export default function OtpVerifyScreen() {
-  const { email } = useLocalSearchParams();
+  const { type = 'email', email, phone } = useLocalSearchParams();
+  const isPhone = type === 'phone';
+
   const [otpValue, setOtpValue] = useState('');
+  const [resendSuccessMessage, setResendSuccessMessage] = useState(null);
 
-  const { submit, isLoading, apiError, clearError, failedAttempts } = useOtpVerify();
+  // Email verify hook
+  const {
+    submit: submitEmailVerify,
+    isLoading: isEmailVerifying,
+    apiError: emailApiError,
+    clearError: clearEmailError,
+    failedAttempts: emailFailedAttempts,
+  } = useOtpVerify();
 
-  const maskedEmail = email
+  // Email resend hook
+  const {
+    resend: resendEmailOtp,
+    isLoading: isEmailResending,
+    apiError: emailResendError,
+    clearError: clearEmailResendError,
+    cooldownSeconds: emailCooldown,
+    canResend: canResendEmail,
+  } = useResendOtp(60);
+
+  // Phone auth hook (send & verify)
+  const {
+    sendOtp: sendPhoneOtp,
+    verifyOtp: verifyPhoneOtp,
+    isSending: isPhoneResending,
+    isVerifying: isPhoneVerifying,
+    apiError: phoneApiError,
+    clearError: clearPhoneError,
+  } = usePhoneAuth();
+
+  const [phoneFailedAttempts, setPhoneFailedAttempts] = useState(0);
+
+  const destinationText = isPhone
+    ? phone
+      ? String(phone).replace(/(.{3})(.*)(.{4})/, '$1****$3')
+      : 'your mobile number'
+    : email
     ? String(email).replace(/(.{2})(.*)(@.*)/, '$1***$3')
-    : 'your email';
+    : 'your email address';
 
+  const failedAttempts = isPhone ? phoneFailedAttempts : emailFailedAttempts;
   const remainingAttempts = MAX_ATTEMPTS - failedAttempts;
   const isBlocked = failedAttempts >= MAX_ATTEMPTS;
   const showAttemptWarning = failedAttempts >= 2 && !isBlocked;
 
+  const isVerifying = isPhone ? isPhoneVerifying : isEmailVerifying;
+  const isResending = isPhone ? isPhoneResending : isEmailResending;
+  const activeError = isPhone ? phoneApiError : emailApiError || emailResendError;
+
   const handleVerify = useCallback(() => {
-    if (!email || otpValue.length !== 6 || isLoading || isBlocked) return;
-    clearError();
-    submit(
-      { email: String(email), otp: otpValue },
-      {
-        onSuccess: () => {
-          router.replace({
-            pathname: '/(auth)/login',
-            params: { email: String(email), verified: 'true' },
-          });
+    if (otpValue.length !== 6 || isVerifying || isBlocked) return;
+    setResendSuccessMessage(null);
+
+    if (isPhone) {
+      if (!phone) return;
+      clearPhoneError();
+      verifyPhoneOtp(
+        { phone: String(phone), otp: otpValue },
+        {
+          onSuccess: () => {
+            router.replace({
+              pathname: '/(auth)/auth-success',
+              params: { type: 'login' },
+            });
+          },
         },
-      },
-    );
-  }, [email, otpValue, isLoading, isBlocked, clearError, submit]);
+      ).catch(() => {
+        setPhoneFailedAttempts((prev) => prev + 1);
+      });
+    } else {
+      if (!email) return;
+      clearEmailError();
+      submitEmailVerify(
+        { email: String(email), otp: otpValue },
+        {
+          onSuccess: () => {
+            router.replace({
+              pathname: '/(auth)/login',
+              params: { email: String(email), verified: 'true' },
+            });
+          },
+        },
+      );
+    }
+  }, [
+    otpValue,
+    isVerifying,
+    isBlocked,
+    isPhone,
+    phone,
+    email,
+    clearPhoneError,
+    clearEmailError,
+    verifyPhoneOtp,
+    submitEmailVerify,
+  ]);
 
   const handleOtpChange = useCallback(
     (value) => {
       setOtpValue(value);
-      if (apiError) clearError();
+      if (emailApiError) clearEmailError();
+      if (phoneApiError) clearPhoneError();
     },
-    [apiError, clearError],
+    [emailApiError, phoneApiError, clearEmailError, clearPhoneError],
   );
+
+  const handleResend = useCallback(() => {
+    if (isResending) return;
+    clearEmailError();
+    clearPhoneError();
+    clearEmailResendError();
+    setResendSuccessMessage(null);
+
+    if (isPhone) {
+      if (!phone) return;
+      sendPhoneOtp(
+        { phone: String(phone) },
+        {
+          onSuccess: () => {
+            setResendSuccessMessage('A fresh verification code has been sent via SMS.');
+            setOtpValue('');
+          },
+        },
+      );
+    } else {
+      if (!email || !canResendEmail) return;
+      resendEmailOtp(
+        { email: String(email) },
+        {
+          onSuccess: () => {
+            setResendSuccessMessage('A fresh verification code has been sent to your email.');
+            setOtpValue('');
+          },
+        },
+      );
+    }
+  }, [
+    isResending,
+    clearEmailError,
+    clearPhoneError,
+    clearEmailResendError,
+    isPhone,
+    phone,
+    email,
+    canResendEmail,
+    sendPhoneOtp,
+    resendEmailOtp,
+  ]);
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        {/* Rounded Top Auth Header with Back Button */}
+        {/* Header with Back Button */}
         <AuthHeader
           showBack
           onBack={() => router.back()}
           badge="THE BLACK WASH · SECURITY"
-          title="Verify Email"
-          subtitle={`Enter the 6-digit code sent to ${maskedEmail}`}
+          title={isPhone ? 'Verify Mobile' : 'Verify Email'}
+          subtitle={`Enter the 6-digit code sent to ${destinationText}`}
         />
 
         <KeyboardAvoidingView
@@ -97,11 +215,15 @@ export default function OtpVerifyScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Premium Dark Surface Form Card */}
+            {/* Form Card */}
             <View style={styles.formCard}>
-              {/* Mail Icon Highlight */}
+              {/* Icon Highlight */}
               <View style={styles.iconContainer}>
-                <Mail size={26} color={Colors.cyanBlue} strokeWidth={1.75} />
+                {isPhone ? (
+                  <Phone size={26} color={Colors.cyanBlue} strokeWidth={1.75} />
+                ) : (
+                  <Mail size={26} color={Colors.cyanBlue} strokeWidth={1.75} />
+                )}
               </View>
 
               {/* 6-Digit Segmented OTP Input */}
@@ -109,10 +231,57 @@ export default function OtpVerifyScreen() {
                 <OtpInput
                   value={otpValue}
                   onChange={handleOtpChange}
-                  hasError={!!apiError}
-                  disabled={isLoading || isBlocked}
+                  hasError={!!activeError}
+                  disabled={isVerifying || isBlocked}
                 />
               </View>
+
+              {/* Resend OTP Button & Cooldown */}
+              <View style={styles.resendSection}>
+                {!isPhone && emailCooldown > 0 ? (
+                  <View style={styles.cooldownBadge}>
+                    <AppText variant="caption" color={Colors.textSecondary} center>
+                      Resend code in{' '}
+                      <AppText variant="caption" weight="semiBold" color={Colors.cyanBlue}>
+                        {emailCooldown}s
+                      </AppText>
+                    </AppText>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleResend}
+                    disabled={isVerifying || isResending}
+                    activeOpacity={0.7}
+                    style={styles.resendButton}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {isResending ? (
+                      <ActivityIndicator size="small" color={Colors.cyanBlue} />
+                    ) : (
+                      <>
+                        <RefreshCw size={13} color={Colors.cyanBlue} />
+                        <AppText
+                          variant="caption"
+                          weight="semiBold"
+                          color={Colors.cyanBlue}
+                          center
+                        >
+                          Resend Code
+                        </AppText>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Success Banner on Resend */}
+              {resendSuccessMessage && (
+                <AuthErrorMessage
+                  message={resendSuccessMessage}
+                  type="success"
+                  onDismiss={() => setResendSuccessMessage(null)}
+                />
+              )}
 
               {/* Attempt Countdown Warning */}
               {showAttemptWarning && (
@@ -127,17 +296,17 @@ export default function OtpVerifyScreen() {
               {/* Blocked State */}
               {isBlocked && (
                 <AuthErrorMessage
-                  message="Too many failed attempts. Please register again to generate a new verification code."
+                  message="Too many failed attempts. Please request a new code."
                   type="error"
                 />
               )}
 
               {/* API / Invalid OTP Error Banner */}
-              {apiError && !isBlocked && (
+              {activeError && !isBlocked && (
                 <AuthErrorMessage
-                  message={apiError}
+                  message={activeError}
                   type="error"
-                  onRetry={apiError.includes('Network') ? handleVerify : undefined}
+                  onRetry={activeError.includes('Network') ? handleVerify : undefined}
                 />
               )}
 
@@ -147,17 +316,19 @@ export default function OtpVerifyScreen() {
                 size="lg"
                 fullWidth
                 onPress={handleVerify}
-                loading={isLoading}
-                disabled={otpValue.length !== 6 || isLoading || isBlocked}
+                loading={isVerifying}
+                disabled={otpValue.length !== 6 || isVerifying || isBlocked}
                 style={styles.submitButton}
               >
                 Verify & Continue
               </AppButton>
 
-              {/* Expiry & Spam Notice */}
+              {/* Expiry Notice */}
               <View style={styles.noticeSection}>
                 <AppText variant="caption" color={Colors.textSecondary} center>
-                  Didn&apos;t receive the email? Check your spam folder.
+                  {isPhone
+                    ? 'SMS OTP delivered to your mobile carrier.'
+                    : "Didn't receive the email? Check your spam folder."}
                 </AppText>
                 <AppText
                   variant="caption"
@@ -171,16 +342,16 @@ export default function OtpVerifyScreen() {
               </View>
             </View>
 
-            {/* Change Email Navigation */}
+            {/* Alternative navigation */}
             <View style={styles.footer}>
               <TouchableOpacity
-                onPress={() => router.replace('/(auth)/register')}
+                onPress={() => router.replace(isPhone ? '/(auth)/login' : '/(auth)/register')}
                 accessibilityRole="button"
-                accessibilityLabel="Use a different email address"
+                accessibilityLabel="Use a different method"
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <AppText variant="bodySmall" weight="semiBold" color={Colors.cyanBlue} center>
-                  Use a different email address
+                  {isPhone ? 'Use a different phone number' : 'Use a different email address'}
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -236,6 +407,29 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingVertical: Spacing.xs,
+  },
+  resendSection: {
+    alignItems: 'center',
+    marginTop: -Spacing.xs,
+  },
+  cooldownBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  resendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(0, 207, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 207, 255, 0.2)',
   },
   submitButton: {
     marginTop: Spacing.xs,

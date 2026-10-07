@@ -13,19 +13,19 @@ import { setCredentials, clearCredentials, setAuthLoading } from '../authSlice';
 /**
  * useSessionRestore
  *
- * Runs once on app startup to restore an existing authenticated session.
- * Handles token validation, refresh, and failure cases.
+ * Runs on app startup to restore an existing authenticated session.
+ * Handles token validation against /api/auth/me/, refresh on 401 via /api/auth/refresh/,
+ * and clean state management.
  *
  * Strategy:
  *  1. Read access token from SecureStore.
  *  2. If no token → not authenticated.
- *  3. If token → fetch profile with it.
+ *  3. If token → fetch profile with it from GET /api/auth/me/.
  *  4. If 200 → authenticated.
- *  5. If 401 → try token refresh.
- *  6. If refresh 200 → save new tokens → retry profile.
+ *  5. If 401 → try token refresh via POST /api/auth/refresh/.
+ *  6. If refresh 200 → save new tokens → retry GET /api/auth/me/.
  *  7. If refresh fails → clear tokens → not authenticated.
- *  8. Network error → mark loading=false WITHOUT clearing tokens.
- *     (Preserve tokens across temporary network failures.)
+ *  8. Network error → mark loading=false WITHOUT clearing valid tokens.
  *
  * @param {Function} onComplete — called with { authenticated: boolean, error?: string }
  */
@@ -48,7 +48,7 @@ export const useSessionRestore = (onComplete) => {
         // --- Attempt 1: validate with current access token ---
         let profileRes;
         try {
-          profileRes = await fetch(`${API_BASE_URL}auth/profile/`, {
+          profileRes = await fetch(`${API_BASE_URL}auth/me/`, {
             headers: {
               Authorization: `Bearer ${accessToken}`,
               Accept: 'application/json',
@@ -62,7 +62,8 @@ export const useSessionRestore = (onComplete) => {
         }
 
         if (profileRes.ok) {
-          const user = await profileRes.json();
+          const profileData = await profileRes.json();
+          const user = profileData.data || profileData;
           if (!cancelled) dispatch(setCredentials({ user }));
           if (!cancelled) onComplete?.({ authenticated: true });
           return;
@@ -81,7 +82,7 @@ export const useSessionRestore = (onComplete) => {
 
           let refreshRes;
           try {
-            refreshRes = await fetch(`${API_BASE_URL}auth/token/refresh/`, {
+            refreshRes = await fetch(`${API_BASE_URL}auth/refresh/`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -97,16 +98,33 @@ export const useSessionRestore = (onComplete) => {
           }
 
           if (refreshRes.ok) {
-            const tokens = await refreshRes.json();
-            // Save both tokens — ROTATE_REFRESH_TOKENS=True means new refresh is issued
-            await saveTokens(tokens.access, tokens.refresh);
+            const refreshData = await refreshRes.json();
+            const newAccess =
+              refreshData.access ||
+              refreshData.tokens?.access ||
+              refreshData.data?.access;
+            const newRefresh =
+              refreshData.refresh ||
+              refreshData.tokens?.refresh ||
+              refreshData.data?.refresh ||
+              refreshToken;
+
+            if (!newAccess) {
+              await clearTokens();
+              if (!cancelled) dispatch(clearCredentials());
+              if (!cancelled) onComplete?.({ authenticated: false });
+              return;
+            }
+
+            // Save refreshed tokens
+            await saveTokens(newAccess, newRefresh);
 
             // Retry profile with new access token
             let retryRes;
             try {
-              retryRes = await fetch(`${API_BASE_URL}auth/profile/`, {
+              retryRes = await fetch(`${API_BASE_URL}auth/me/`, {
                 headers: {
-                  Authorization: `Bearer ${tokens.access}`,
+                  Authorization: `Bearer ${newAccess}`,
                   Accept: 'application/json',
                 },
               });
@@ -117,7 +135,8 @@ export const useSessionRestore = (onComplete) => {
             }
 
             if (retryRes.ok) {
-              const user = await retryRes.json();
+              const profileData = await retryRes.json();
+              const user = profileData.data || profileData;
               if (!cancelled) dispatch(setCredentials({ user }));
               if (!cancelled) onComplete?.({ authenticated: true });
             } else {
@@ -138,7 +157,7 @@ export const useSessionRestore = (onComplete) => {
         if (!cancelled) dispatch(setAuthLoading(false));
         if (!cancelled) onComplete?.({ authenticated: false, error: 'server' });
       } catch {
-        // Unexpected error — safe fallback
+        // Safe fallback
         if (!cancelled) dispatch(setAuthLoading(false));
         if (!cancelled) onComplete?.({ authenticated: false, error: 'unknown' });
       }
@@ -148,6 +167,6 @@ export const useSessionRestore = (onComplete) => {
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 };

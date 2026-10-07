@@ -1,0 +1,31 @@
+services:
+  backend:
+    build: .
+    container_name: blackwash_backend
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8011}:${CONTAINER_PORT:-8000}"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    container_name: blackwash_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-theblackwash}
+      POSTGRES_USER: ${DB_USER:-theblackwash_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-theblackwash_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-theblackwash_user} -d ${DB_NAME:-theblackwash}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

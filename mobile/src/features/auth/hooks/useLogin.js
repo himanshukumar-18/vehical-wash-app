@@ -11,9 +11,9 @@ import { getAuthErrorMessage } from '../utils/authErrors';
  * useLogin
  *
  * Handles the full login flow:
- *  1. POST /api/auth/login/ → receives { access, refresh }
- *  2. Save tokens to SecureStore
- *  3. GET /api/auth/profile/ with the new access token
+ *  1. POST /api/auth/login/ → receives tokens and user object
+ *  2. Save access & refresh tokens securely in SecureStore
+ *  3. Use returned user object or fetch fresh profile from /api/auth/me/
  *  4. Dispatch setCredentials with user profile
  *  5. Call onSuccess callback for navigation
  *
@@ -32,30 +32,49 @@ export const useLogin = () => {
 
       try {
         // Step 1 — POST /api/auth/login/
-        // Response: { access, refresh } — direct SimpleJWT format, no wrapper
-        const tokens = await loginMutation({
+        const res = await loginMutation({
           email: formData.email,
           password: formData.password,
         }).unwrap();
 
-        // Step 2 — Persist tokens securely
-        await saveTokens(tokens.access, tokens.refresh);
+        // Extract tokens and user from standard backend payload
+        const accessToken =
+          res.data?.tokens?.access ||
+          res.tokens?.access ||
+          res.data?.access ||
+          res.access;
 
-        // Step 3 — Fetch full user profile with new access token
-        // Using fetch directly since RTK Query hooks cannot be called in callbacks
-        let user = { email: formData.email, fullname: '' };
-        try {
-          const profileRes = await fetch(`${API_BASE_URL}auth/profile/`, {
-            headers: {
-              Authorization: `Bearer ${tokens.access}`,
-              Accept: 'application/json',
-            },
-          });
-          if (profileRes.ok) {
-            user = await profileRes.json();
+        const refreshToken =
+          res.data?.tokens?.refresh ||
+          res.tokens?.refresh ||
+          res.data?.refresh ||
+          res.refresh;
+
+        if (!accessToken) {
+          throw new Error('Authentication failed. No access token returned.');
+        }
+
+        // Step 2 — Persist tokens securely
+        await saveTokens(accessToken, refreshToken || '');
+
+        // Step 3 — Get user profile (from response or fallback to /api/auth/me/)
+        let user = res.data?.user || res.user;
+
+        if (!user) {
+          try {
+            const profileRes = await fetch(`${API_BASE_URL}auth/me/`, {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: 'application/json',
+              },
+            });
+            if (profileRes.ok) {
+              const profileData = await profileRes.json();
+              user = profileData.data || profileData;
+            }
+          } catch {
+            user = { email: formData.email, fullname: '' };
           }
-        } catch {
-          // Profile fetch network error — proceed with partial user data
         }
 
         // Step 4 — Update Redux auth state
