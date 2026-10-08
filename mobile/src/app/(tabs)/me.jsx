@@ -100,7 +100,6 @@ export default function MeScreen() {
   } = useGetVehiclesQuery(undefined, { skip: !currentUser });
 
   const {
-    data: bookings,
     refetch: refetchBookings,
     isFetching: isBookingsFetching,
   } = useGetBookingsQuery(undefined, { skip: !currentUser });
@@ -119,8 +118,6 @@ export default function MeScreen() {
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(-12);
   const avatarScale = useSharedValue(0.85);
-  const statsOpacity = useSharedValue(0);
-  const statsScale = useSharedValue(0.92);
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(16);
 
@@ -132,22 +129,13 @@ export default function MeScreen() {
     // 2. Avatar scale
     avatarScale.value = withDelay(150, withSpring(1, { damping: 12, stiffness: 240 }));
 
-    // 3. Stats card entrance
-    statsOpacity.value = withDelay(250, withTiming(1, { duration: 450 }));
-    statsScale.value = withDelay(250, withSpring(1, { damping: 14, stiffness: 220 }));
-
-    // 4. Content sections entrance
-    contentOpacity.value = withDelay(350, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    contentTranslateY.value = withDelay(350, withSpring(0, { damping: 14, stiffness: 180 }));
+    // 3. Content sections entrance
+    contentOpacity.value = withDelay(250, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    contentTranslateY.value = withDelay(250, withSpring(0, { damping: 14, stiffness: 180 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const user = profileData || currentUser;
-
-  // Real statistics derived from backend queries
-  const totalBookingsCount = bookings?.length || 0;
-  const completedBookingsCount = bookings?.filter((b) => b.status === 'completed')?.length || 0;
-  const vehiclesCount = vehicles?.length || 0;
 
   const onRefresh = () => {
     if (currentUser) {
@@ -282,11 +270,6 @@ export default function MeScreen() {
     transform: [{ scale: avatarScale.value }],
   }));
 
-  const animatedStatsStyle = useAnimatedStyle(() => ({
-    opacity: statsOpacity.value,
-    transform: [{ scale: statsScale.value }],
-  }));
-
   const animatedContentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
     transform: [{ translateY: contentTranslateY.value }],
@@ -370,40 +353,6 @@ export default function MeScreen() {
             </View>
           </View>
         </View>
-
-        {/* Account Mini Stats Bar (100% Real Backend Data) */}
-        <Animated.View style={[styles.statsCard, animatedStatsStyle]}>
-          <View style={styles.statItem}>
-            <AppText variant="h3" weight="bold" color={Colors.cyanBlue}>
-              {String(totalBookingsCount).padStart(2, '0')}
-            </AppText>
-            <AppText variant="overline" color={Colors.textMuted} style={styles.statLabel}>
-              BOOKINGS
-            </AppText>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statItem}>
-            <AppText variant="h3" weight="bold" color={Colors.textPrimary}>
-              {String(completedBookingsCount).padStart(2, '0')}
-            </AppText>
-            <AppText variant="overline" color={Colors.textMuted} style={styles.statLabel}>
-              COMPLETED
-            </AppText>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statItem}>
-            <AppText variant="h3" weight="bold" color={Colors.cyanBlue}>
-              {String(vehiclesCount).padStart(2, '0')}
-            </AppText>
-            <AppText variant="overline" color={Colors.textMuted} style={styles.statLabel}>
-              VEHICLES
-            </AppText>
-          </View>
-        </Animated.View>
       </Animated.View>
 
       {/* ============================================================ */}
@@ -851,32 +800,6 @@ const styles = StyleSheet.create({
   verifiedText: {
     fontSize: 9,
     letterSpacing: 0.8,
-  },
-  statsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceCard,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    marginTop: 2,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 1,
-  },
-  statLabel: {
-    fontSize: 9,
-    letterSpacing: 0.9,
-  },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.border,
   },
   scroll: {
     flex: 1,

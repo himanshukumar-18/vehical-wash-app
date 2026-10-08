@@ -1,254 +1,442 @@
-# THE BLACK WASH — Mobile App
+# The Black Wash — Mobile App
 
-> **Tagline:** *"Your Car. Our Care."*  
-> Premium doorstep car washing, detailing, and vehicle care mobile application for customers in Hazaribagh, Jharkhand, India.
-
----
-
-## 📱 Overview
-
-**The Black Wash** mobile app is a high-performance, dark-themed customer application built with **React Native** and **Expo**. It connects vehicle owners in Hazaribagh directly with professional doorstep car washing services via structured WhatsApp communication and secure backend session management.
+> **Doorstep car detailing service** for Hazaribagh, Jharkhand.  
+> Built with **React Native / Expo (Expo Router)** + **Django REST Framework** backend.
 
 ---
 
-## 🚀 Features
+## Table of Contents
 
-### 🔐 Authentication & Session
-- **Registration**: Full name, email, password validation with client-side Zod schemas. Clickable Terms of Service & Privacy Policy links.
-- **OTP Verification**: 6-digit numeric email verification matching backend security constraints.
-- **Login**: SimpleJWT access (1 hr) & refresh token (7 days) handling with automatic background token rotation.
-- **Secure Token Storage**: Tokens stored exclusively in hardware-backed `Expo SecureStore` (never in AsyncStorage, Redux, or .env).
-- **Session Restoration**: Seamless startup token validation (`useSessionRestore`) with automatic silent refresh on 401.
-- **Logout**: Complete token clearance, session destruction, and cache reset.
-
-### 🏠 Home Experience
-- **Dynamic Header & Avatar**: Displays real user initials (e.g., `Himanshu Kumar` → `HK`, `Rahul Sharma` → `RS`) with fallback and unauthenticated dev preview support.
-- **Live Search**: Client-side filtering of wash packages and descriptions.
-- **Wash Packages**: Dynamic services feed from backend (`/api/services/`) with pricing, duration, and fallback support.
-- **Hero Carousel**: Interactive promotional banner carousel showcasing premium car care services.
-- **Before → After Transformation**: Interactive visual comparisons demonstrating detailing quality.
-- **Premium Trust Strip**: Verified doorstep highlights, professional technicians, and satisfaction guarantees.
-- **Photo Gallery**: Showcase of premium car cleaning results.
-- **Direct Support Call**: 1-tap phone hotline dialer for immediate customer assistance.
-
-### 🧼 Booking Flow (WhatsApp Handoff)
-- **Multi-Step Booking**:
-  1. Select Vehicle from user's registered garage.
-  2. Select Wash Package.
-  3. Select Preferred Date (next 7 rolling days).
-  4. Enter Doorstep Address in Hazaribagh.
-  5. Optional Google Maps location link & special instructions.
-- **Order Breakdown**: Real-time pricing summary with free doorstep travel calculation.
-- **WhatsApp Integration**: Generates structured, readable WhatsApp message with unique reference ID (`TBW-YYYYMMDD-HHMM`) and opens WhatsApp directly to dispatch to the business owner.
-- **No Online Payments**: Zero payment friction in-app. Payment is made directly upon service completion (Cash/UPI).
-
-### 🚗 My Garage
-- **Vehicle Registration**: Add cars by brand, model, vehicle type (Hatchback, Sedan, SUV, Luxury), color, and registration number.
-- **Garage Management**: Set default vehicle for 1-tap checkout, view registered cars, or delete vehicles.
-- **Authenticated CRUD**: Backed by protected `/api/vehicles/` Django endpoints with user ownership isolation.
-
-### 👤 Profile / Account Hub (`Me` Tab)
-- **User Identity**: Real authenticated profile data, email, verified member badge.
-- **Live Statistics**: Real counts for Total Bookings, Completed Services, and Garage Vehicles.
-- **Doorstep Service Hub**: Operating hours (8 AM – 7 PM), location information.
-- **Legal & Policies**: 1-tap browser navigation to Privacy Policy, Terms of Service, Account Deletion, and Support.
-- **Edit Profile**: Modal to update customer name and profile details.
-- **Sign Out**: Secure session destruction with confirmation alert.
-
-### 📜 Legal & Compliance (Play Store Ready)
-- **Centralized Legal URLs** (`src/constants/legal.js`):
-  - Privacy Policy: `https://theblackwash.vercel.app/privacy-policy`
-  - Terms of Service: `https://theblackwash.vercel.app/terms`
-  - Account & Data Deletion: `https://theblackwash.vercel.app/account-deletion`
-  - Contact & Support: `https://theblackwash.vercel.app/contact`
+1. [Project Overview](#1-project-overview)
+2. [Architecture](#2-architecture)
+3. [Prerequisites](#3-prerequisites)
+4. [Clone & Install](#4-clone--install)
+5. [Environment Setup](#5-environment-setup)
+6. [Running the App](#6-running-the-app)
+7. [Authentication Features](#7-authentication-features)
+8. [Google Sign-In Setup](#8-google-sign-in-setup)
+9. [Project Structure](#9-project-structure)
+10. [API Layer](#10-api-layer)
+11. [Production Build (EAS)](#11-production-build-eas)
+12. [Troubleshooting](#12-troubleshooting)
 
 ---
 
-## 🛠️ Tech Stack
+## 1. Project Overview
 
-| Layer | Technology |
-|---|---|
-| **Framework** | Expo SDK 57 / React Native 0.86.3 |
-| **Language** | JavaScript (ES6+ / JSX) — *100% JavaScript* |
-| **Routing** | Expo Router 57 (File-based navigation) |
-| **State Management** | Redux Toolkit 2.8 + RTK Query |
-| **Secure Storage** | Expo SecureStore (`expo-secure-store`) |
-| **Animations** | React Native Reanimated 4 & Worklets |
-| **Forms & Validation** | React Hook Form + Zod |
-| **Icons & UI** | Lucide React Native, React Native SVG |
-| **Backend API** | Django 5.x + Django REST Framework + SimpleJWT |
-| **Database** | PostgreSQL 16 |
-| **Legal Website** | React 18 + Vite 6 + React Router 6 (Vercel SPA) |
+The Black Wash is a doorstep vehicle detailing app. Customers can:
+
+- Register / log in (Email+Password, Phone OTP, or Google Sign-In)
+- Manage their vehicles
+- Browse services
+- Book a wash via WhatsApp (no in-app booking backend)
+- View and update their profile
 
 ---
 
-## 🏗️ Architecture
+## 2. Architecture
 
 ```
-Mobile Customer App (React Native / Expo)
-       │
-       ├─► Hardware SecureStore (JWT Tokens)
-       │
-       ├─► RTK Query / BaseApi (Auto-refresh on 401)
-       │         │
-       │         ▼ (HTTPS / REST)
-       │   Django REST API Backend (PostgreSQL)
-       │         ├── /api/auth/ (register, verify-otp, login, logout, refresh, profile)
-       │         ├── /api/vehicles/ (user vehicles CRUD)
-       │         ├── /api/services/ (public active wash packages)
-       │         └── /api/bookings/ (customer booking records)
-       │
-       └─► Booking Dispatch Handoff
-                 │
-                 ▼
-          WhatsApp Messenger
-          (Direct communication & slot confirmation with business owner)
+React Native / Expo (this repo)
+        ↓  HTTPS
+Production API: https://api.theblackwash.com
+        ↓
+VPS Nginx → 127.0.0.1:8011
+        ↓
+Docker container (Django + Gunicorn, port 8000)
+        ↓
+PostgreSQL
 ```
 
-> **Important Note on Data Flow:** WhatsApp is used as the customer communication and dispatch channel. The Django backend remains the source of truth for user accounts, profile data, and vehicle garage records.
-
----
-
-## 📁 Directory Structure
-
+**Local development — Android Emulator:**
 ```
-mobile/
-├── src/
-│   ├── app/                         # Expo Router screens
-│   │   ├── (auth)/                  # Auth group
-│   │   │   ├── login.jsx            # Sign In
-│   │   │   ├── register.jsx         # Create Account + Legal Links
-│   │   │   ├── otp-verify.jsx       # 6-digit OTP verification
-│   │   │   ├── splash.jsx           # Startup loader & session check
-│   │   │   └── auth-success.jsx     # Welcome animation transition
-│   │   ├── (tabs)/                  # Main tabs
-│   │   │   ├── _layout.jsx          # Tab navigation (Home · Me)
-│   │   │   ├── index.jsx            # Home dashboard (Services, Carousel, Trust Strip)
-│   │   │   └── me.jsx               # Account Hub, Garage, Legal Links, Logout
-│   │   ├── booking.jsx              # 5-step doorstep booking flow & WhatsApp dispatch
-│   │   ├── index.jsx                # Entry redirect
-│   │   └── _layout.jsx              # Root Layout (Redux, GestureHandler, SafeAreaProvider)
-│   │
-│   ├── components/                  # Reusable UI components
-│   │   ├── ui/                      # AppText, AppButton, AppCard, AppInput, AppDivider, AppModal
-│   │   ├── layout/                  # AppScreen
-│   │   └── feedback/                # AppLoader, AppErrorState, AppEmptyState
-│   │
-│   ├── features/                    # Modular feature logic
-│   │   ├── auth/                    # authSlice, authApi, useLogin, useRegister, useOtpVerify, useSessionRestore
-│   │   ├── services/                # servicesApi (getServices)
-│   │   ├── vehicles/                # vehiclesApi (CRUD) + AddVehicleModal
-│   │   ├── bookings/                # bookingsApi (getBookings, createBooking)
-│   │   ├── home/                    # Carousel, Before/After, Trust Strip, Gallery
-│   │   └── profile/                 # EditProfileModal
-│   │
-│   ├── constants/                   # Configuration constants
-│   │   ├── api.js                   # API_BASE_URL, API_ENV
-│   │   ├── contact.js               # Business phone, WhatsApp, message formatting
-│   │   ├── legal.js                 # Centralized legal & privacy URLs
-│   │   ├── services.js              # Fallback services
-│   │   └── devPreview.js            # Safe development-only preview flag
-│   │
-│   ├── store/                       # Redux store & RTK Query baseApi with JWT reauth
-│   ├── services/storage/            # SecureStore token manager
-│   ├── theme/                       # Colors, Typography, Spacing, Radius, Shadows
-│   └── utils/                       # getUserInitials, formatPrice, error parsers
-│
-├── the-black-wash-legal/            # Standalone Vite + React legal website for Vercel
-├── app.json                         # Expo configuration (Package name, icon, splash)
-└── package.json
+Expo Dev Client → http://10.0.2.2:8011/api/
+```
+
+**Local development — iOS Simulator / Web:**
+```
+Expo Dev Client → http://localhost:8011/api/
 ```
 
 ---
 
-## ⚡ Getting Started
+## 3. Prerequisites
 
-### 1. Prerequisites
-- **Node.js** v18+ (Node 20+ recommended)
-- **Expo CLI** (`npx expo`)
-- **Django Backend** running locally or on a remote staging server
+| Tool | Version | Notes |
+|------|---------|-------|
+| Node.js | ≥ 18 LTS | `node -v` |
+| npm | ≥ 9 | bundled with Node |
+| Expo CLI | ≥ 0.18 | `npx expo` works without global install |
+| Android Studio | Latest | Android emulator / SDK |
+| Xcode | ≥ 15 | iOS simulator (macOS only) |
+| EAS CLI | Latest | `npm i -g eas-cli` — only needed for production builds |
 
-### 2. Installation
+---
+
+## 4. Clone & Install
+
 ```bash
-cd mobile
+git clone <repo-url>
+cd theblackwash/mobile
+
 npm install
 ```
 
-### 3. Environment Variables
-Create a `.env` file from the template:
+---
+
+## 5. Environment Setup
+
 ```bash
 cp .env.example .env
 ```
 
-Configure your `.env`:
+Open `.env` and configure for your environment:
+
 ```env
-# Backend API base URL
-# iOS Simulator: http://localhost:8000/api/
-# Android Emulator: http://10.0.2.2:8000/api/
-# Production / Staging: https://your-backend-domain.com/api/
-EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/api/
+# Android Emulator (default for local dev)
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8011/api/
+
+# iOS Simulator / Web — uncomment if needed
+# EXPO_PUBLIC_API_BASE_URL=http://localhost:8011/api/
+
+# Physical device on same LAN — replace X with your machine IP
+# EXPO_PUBLIC_API_BASE_URL=http://192.168.1.X:8011/api/
+
+# Production
+# EXPO_PUBLIC_API_BASE_URL=https://api.theblackwash.com/api/
 
 EXPO_PUBLIC_APP_ENV=development
 
-# Business Phone & WhatsApp (international format: +91XXXXXXXXXX)
-EXPO_PUBLIC_CALL_NUMBER=+91XXXXXXXXXX
-EXPO_PUBLIC_WHATSAPP_NUMBER=+91XXXXXXXXXX
-
-# Production Legal & Privacy Site
+EXPO_PUBLIC_CALL_NUMBER=+916201030273
+EXPO_PUBLIC_WHATSAPP_NUMBER=+916201030273
 EXPO_PUBLIC_LEGAL_SITE_URL=https://theblackwash.vercel.app
 
-# Dev UI Preview Flag (strictly disabled in production builds)
+# Google OAuth Web Client ID (see Section 8)
+EXPO_PUBLIC_GOOGLE_CLIENT_ID=347851166673-o863kj6gje7hde5rq8fgqe8i145eiv12.apps.googleusercontent.com
+
+# Dev-only: skip auth and preview home screen directly (MUST be false in production)
 EXPO_PUBLIC_DEV_HOME_PREVIEW=false
 ```
 
-### 4. Start Development Server
+> **Never commit `.env` to version control.** It is already in `.gitignore`.
+
+---
+
+## 6. Running the App
+
+### Start the Expo dev server
+
 ```bash
-# Start Expo Metro Bundler
-npx expo start
+npm start
+```
 
-# Run on iOS Simulator (Mac only)
-npx expo start --ios
+Press in the terminal:
+- `a` — open Android emulator
+- `i` — open iOS simulator
+- `w` — open in browser
 
-# Run on Android Emulator
-npx expo start --android
+### Run directly on a platform
+
+```bash
+npm run android   # build and launch on Android emulator / device
+npm run ios       # build and launch on iOS simulator (macOS only)
+npm run web       # launch in browser
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+### Expo Doctor (dependency health check)
+
+```bash
+npm run doctor
 ```
 
 ---
 
-## 🧪 Testing & Verification
+## 7. Authentication Features
 
-```bash
-# 1. Run ESLint across entire mobile source
-npx eslint src
+The app supports three authentication methods:
 
-# 2. Run Django backend system check
-cd ../backend && python manage.py check
+### Email + Password
+1. Register with email, full name, password (and optional phone)
+2. An OTP is sent to your email — verify it on the OTP screen
+3. Log in with email + password
 
-# 3. Run Django automated test suite
-cd ../backend && python manage.py test tests
+### Phone OTP
+1. Enter Indian mobile number (+91 XXXXXXXXXX)
+2. Receive a 6-digit OTP
+3. Verify OTP to log in (creates a new account automatically if first time)
 
-# 4. Build & verify legal website
-cd ../mobile/the-black-wash-legal && npm run build
+### Google Sign-In
+1. Tap **Continue with Google**
+2. Browser-based OAuth 2.0 flow opens via `expo-auth-session`
+3. Google ID token is verified server-side by Django
+4. Existing account is linked; new account is auto-created if first time
+
+---
+
+## 8. Google Sign-In Setup
+
+### Step 1 — Google Cloud Console
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Create or select your project
+3. Navigate to **APIs & Services → Credentials**
+
+### Step 2 — Create a Web Application OAuth 2.0 Client ID
+
+| Field | Value |
+|-------|-------|
+| Application type | Web application |
+| Authorized redirect URIs | `https://auth.expo.io/@<your-expo-username>/theblackwash` |
+
+> For production standalone builds, also add: `theblackwash://auth/callback`
+
+### Step 3 — Set the Client ID in both .env files
+
+**Mobile** (`mobile/.env`):
+```env
+EXPO_PUBLIC_GOOGLE_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+```
+
+**Backend** (`backend/.env`):
+```env
+GOOGLE_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+```
+
+Both must use the same Web Client ID.
+
+### Step 4 — Verify app scheme
+
+`app.json` must have `scheme: "theblackwash"` (already set):
+
+```json
+{
+  "expo": {
+    "scheme": "theblackwash"
+  }
+}
+```
+
+### Step 5 — Enable APIs in Google Cloud Console
+
+Go to **APIs & Services → Library** and enable:
+- **Google People API**
+
+---
+
+## 9. Project Structure
+
+```
+mobile/
+├── src/
+│   ├── app/                        # Expo Router file-based navigation
+│   │   ├── (auth)/                 # Unauthenticated screens
+│   │   │   ├── login.jsx           # Login: Phone OTP / Email+Password / Google
+│   │   │   ├── register.jsx        # Registration form
+│   │   │   ├── otp-verify.jsx      # OTP verification (email & phone)
+│   │   │   ├── auth-success.jsx    # Post-login success screen
+│   │   │   └── splash.jsx          # Splash / onboarding
+│   │   ├── (tabs)/                 # Authenticated tab screens
+│   │   │   ├── index.jsx           # Home
+│   │   │   └── me.jsx              # Profile
+│   │   ├── booking.jsx             # WhatsApp booking flow
+│   │   └── _layout.jsx             # Root layout with auth guard
+│   │
+│   ├── features/                   # Feature-based domain modules
+│   │   ├── auth/
+│   │   │   ├── authApi.js          # RTK Query auth endpoints
+│   │   │   ├── authSlice.js        # Redux auth state
+│   │   │   ├── hooks/
+│   │   │   │   ├── useLogin.js
+│   │   │   │   ├── useRegister.js
+│   │   │   │   ├── useGoogleAuth.js
+│   │   │   │   ├── usePhoneAuth.js
+│   │   │   │   ├── useResendOtp.js
+│   │   │   │   └── useSessionRestore.js
+│   │   │   ├── components/
+│   │   │   │   └── GoogleSignInButton.jsx
+│   │   │   ├── utils/
+│   │   │   │   └── authErrors.js   # Backend error code → user message mapping
+│   │   │   └── validation/         # Zod schemas (loginSchema, registerSchema, etc.)
+│   │   ├── vehicles/
+│   │   ├── bookings/
+│   │   ├── services/
+│   │   └── profile/
+│   │
+│   ├── store/
+│   │   ├── api/baseApi.js          # RTK Query base with JWT refresh interceptor
+│   │   └── index.js                # Redux store
+│   │
+│   ├── services/
+│   │   └── storage/
+│   │       └── secureStorage.js    # expo-secure-store token management
+│   │
+│   ├── constants/
+│   │   ├── api.js                  # API_BASE_URL + ENDPOINTS map
+│   │   └── layout.js               # Screen dimensions, platform flags
+│   │
+│   ├── components/
+│   │   └── ui/                     # AppButton, AppInput, AppText, AppCard, etc.
+│   │
+│   ├── hooks/                      # useAppDispatch, useAppSelector
+│   ├── theme/                      # Colors, Spacing, Typography, Radius, Shadows
+│   └── utils/                      # formatPrice, getApiErrorMessage, getInitials
+│
+├── .env                            # Local environment variables (gitignored)
+├── .env.example                    # Template — safe to commit
+├── app.json                        # Expo config (scheme, splash, icons, permissions)
+├── eas.json                        # EAS Build profiles (development/preview/production)
+├── babel.config.js
+├── package.json
+└── README.md
 ```
 
 ---
 
-## 📋 Production Readiness Checklist
+## 10. API Layer
 
-- [x] **Zero Hardcoded Secrets**: All keys, numbers, and tokens read from SecureStore or environment variables.
-- [x] **JavaScript Only**: 100% clean JavaScript source code.
-- [x] **Lint Verification**: `npx eslint src` passes with 0 errors and 0 warnings.
-- [x] **Backend Checks**: `python manage.py check` passes with 0 issues.
-- [x] **Backend Tests**: 25/25 automated tests passing (`test_auth`, `test_bookings`, `test_security`, `test_notifications`).
-- [x] **Secure JWT Lifecycle**: Automatic token refresh on 401 with rotation support; safe logout cleanup.
-- [x] **Safe Legal Links**: Centralized in `src/constants/legal.js` on Register and Profile screens.
-- [x] **Standalone Legal Website**: Production build passing (`the-black-wash-legal/` ready for Vercel).
-- [x] **No Localhost in Prod**: Environment-driven API endpoints.
-- [ ] **EAS Production Build**: Run `eas build --platform android` for Play Store release.
-- [ ] **Play Store Listing**: Submit Privacy Policy URL (`https://theblackwash.vercel.app/privacy-policy`) to Google Play Console.
+### Base URL
+
+Resolved from `EXPO_PUBLIC_API_BASE_URL` at runtime in [`src/constants/api.js`](src/constants/api.js).
+
+### Auth Endpoints
+
+| Method | Endpoint | Auth Required | Description |
+|--------|----------|:---:|-------------|
+| `POST` | `/api/auth/register/` | ✗ | Register with email + password |
+| `POST` | `/api/auth/verify-otp/` | ✗ | Verify email OTP after registration |
+| `POST` | `/api/auth/resend-otp/` | ✗ | Resend OTP (60 s cooldown client-side) |
+| `POST` | `/api/auth/login/` | ✗ | Login with email + password |
+| `POST` | `/api/auth/phone/send-otp/` | ✗ | Send OTP to phone number |
+| `POST` | `/api/auth/phone/verify-otp/` | ✗ | Verify phone OTP and receive tokens |
+| `POST` | `/api/auth/google/` | ✗ | Google Sign-In (id_token exchange) |
+| `POST` | `/api/auth/refresh/` | ✗ | Refresh JWT access token |
+| `POST` | `/api/auth/logout/` | ✓ | Logout (invalidates refresh token) |
+| `GET` | `/api/auth/me/` | ✓ | Get current user profile |
+| `PATCH` | `/api/auth/me/` | ✓ | Update profile (fullname, phone) |
+
+### Vehicle Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/vehicles/` | Add a vehicle |
+| `GET` | `/api/vehicles/` | List user's vehicles |
+| `PATCH` | `/api/vehicles/<id>/` | Update a vehicle |
+| `DELETE` | `/api/vehicles/<id>/` | Delete a vehicle |
+
+### Health Check
+
+```
+GET /api/health/  →  { "status": "ok" }
+```
+
+No authentication required. Use this to verify the backend is reachable.
+
+### Token Storage
+
+JWT tokens are stored in **`expo-secure-store`** (hardware-backed keychain / keystore).  
+They are **never** stored in Redux state, AsyncStorage, or `.env`.
+
+| SecureStore Key | Value |
+|-----------------|-------|
+| `tbw_access_token` | Short-lived JWT (1 hour) |
+| `tbw_refresh_token` | Long-lived JWT (7 days) |
+
+The `baseApi.js` Axios interceptor automatically refreshes the access token using the refresh token when a `401` is received.
 
 ---
 
-## 📄 License
+## 11. Production Build (EAS)
 
-Copyright © 2026 **The Black Wash**. All rights reserved.
+### One-time setup
+
+```bash
+npm install -g eas-cli
+eas login
+eas build:configure   # only needed once per project
+```
+
+### Android APK (for testing)
+
+```bash
+eas build --platform android --profile preview
+```
+
+### Android AAB (for Play Store)
+
+```bash
+eas build --platform android --profile production
+```
+
+### iOS (for App Store)
+
+```bash
+eas build --platform ios --profile production
+```
+
+### Submit to stores
+
+```bash
+eas submit --platform android
+eas submit --platform ios
+```
+
+> **Before production build:** make sure `EXPO_PUBLIC_API_BASE_URL=https://api.theblackwash.com/api/` and `EXPO_PUBLIC_APP_ENV=production` are set — either in EAS secrets or in the `env` block inside `eas.json`.
+
+---
+
+## 12. Troubleshooting
+
+### Backend not receiving requests
+
+1. Check `EXPO_PUBLIC_API_BASE_URL` matches your environment
+2. Android emulator must use `http://10.0.2.2:8011/api/` (not `localhost`)
+3. iOS simulator / Web must use `http://localhost:8011/api/`
+4. Verify backend is running: `docker compose ps` in the `backend/` directory
+5. Test health: `curl http://localhost:8011/api/health/`
+
+### OTP email not arriving in Gmail
+
+- Check your **spam / junk** folder first
+- Confirm `backend/.env` has: `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend`
+- Verify the Gmail App Password has no spaces (16 chars): `EMAIL_HOST_PASSWORD=xxxxxxxxxxxxxxxx`
+- Check backend logs: `docker compose logs backend | grep -i email`
+
+### Google Sign-In fails silently
+
+- Ensure `EXPO_PUBLIC_GOOGLE_CLIENT_ID` is set in `mobile/.env`
+- Ensure the same ID is in `backend/.env` as `GOOGLE_CLIENT_ID`
+- Verify the redirect URI is registered in Google Cloud Console
+- On a physical device ensure `scheme: "theblackwash"` is in `app.json`
+
+### Metro bundler cache issues
+
+```bash
+npx expo start --clear
+```
+
+### Dependency conflicts
+
+```bash
+npm run doctor
+```
+
+---
+
+## Environment Quick Reference
+
+| Variable | Android Emulator | iOS Simulator / Web | Production |
+|----------|:---:|:---:|:---:|
+| `EXPO_PUBLIC_API_BASE_URL` | `http://10.0.2.2:8011/api/` | `http://localhost:8011/api/` | `https://api.theblackwash.com/api/` |
+| `EXPO_PUBLIC_APP_ENV` | `development` | `development` | `production` |
+| `EXPO_PUBLIC_DEV_HOME_PREVIEW` | `false` | `false` | `false` |
+
+---
+
+*The Black Wash — Hazaribagh, Jharkhand*  
+*React Native / Expo · Django REST Framework · PostgreSQL · Docker*

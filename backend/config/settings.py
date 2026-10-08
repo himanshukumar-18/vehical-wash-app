@@ -1,13 +1,31 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 from decouple import Csv, config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-the-black-wash-default-secret-key")
 DEBUG = config("DEBUG", default=False, cast=bool)
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="127.0.0.1,localhost,0.0.0.0", cast=Csv())
+
+# Parse and normalize ALLOWED_HOSTS safely
+raw_allowed_hosts = config("ALLOWED_HOSTS", default="127.0.0.1,localhost,0.0.0.0,10.0.2.2,testserver")
+cleaned_hosts = []
+for host in raw_allowed_hosts.split(","):
+    h = host.strip()
+    if not h:
+        continue
+    # Strip scheme if accidentally provided (e.g. http://localhost:8081 -> localhost)
+    if "://" in h:
+        parsed = urlparse(h)
+        h = parsed.hostname or parsed.path
+    elif ":" in h:
+        h = h.split(":")[0]
+    if h and h not in cleaned_hosts:
+        cleaned_hosts.append(h)
+
+ALLOWED_HOSTS = cleaned_hosts or ["*"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -16,6 +34,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
     "users",
@@ -24,6 +43,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -94,6 +114,37 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# CORS Configuration (Required for Web / Expo Web preview from http://localhost:8081)
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:19006",
+    "http://127.0.0.1:19006",
+    "http://localhost:3000",
+    "https://theblackwash.vercel.app",
+]
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
 # Django REST Framework configuration
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -152,6 +203,11 @@ GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", default="")
 OTP_EXPIRY_MINUTES = config("OTP_EXPIRY_MINUTES", default=10, cast=int)
 OTP_MAX_ATTEMPTS = config("OTP_MAX_ATTEMPTS", default=5, cast=int)
 OTP_RESEND_COOLDOWN_SECONDS = config("OTP_RESEND_COOLDOWN_SECONDS", default=60, cast=int)
+
+# Proxy and SSL configuration (for VPS Nginx reverse proxy terminating HTTPS)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 # Production security headers
 SECURE_BROWSER_XSS_FILTER = True
